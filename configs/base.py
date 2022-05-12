@@ -72,14 +72,13 @@ class ConfigBase(object):
 
     @property
     def model_name(self) -> str:
-        return self.backbone
+        raise NotImplementedError
 
     @property
     def checkpoint_dir(self) -> str:
         ckpt = os.path.join(
             self.checkpoint_root,
             self.task,          # 'scratch', 'denoising', 'pirl', 'simclr', ...
-            self.model_name,    # 'resnet18', 'resnet50', ...
             self.hash           # ...
             )
         os.makedirs(ckpt, exist_ok=True)
@@ -115,6 +114,7 @@ class ConfigBase(object):
         parser.add_argument('--root', type=str, default='D:/data/ADNI')
         parser.add_argument('--data_info', type=str, default='labels/data_info.csv')
         parser.add_argument('--train_size', type=float, default=0.9)
+        parser.add_argument('--image_size', type=int, default=96)
         parser.add_argument('--pin_memory', action='store_true')
         parser.add_argument('--random_state', type=int, default=2022)
         return parser
@@ -123,7 +123,6 @@ class ConfigBase(object):
     def model_parser() -> argparse.ArgumentParser:
         """Returns an `argparse.ArgumentParser` instance containing model-related arguments."""
         parser = argparse.ArgumentParser("CNN Backbone", add_help=False)
-        parser.add_argument('--backbone', type=str, default='vit', choices=('vit', 'convit'))
         parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training from.')
         return parser
 

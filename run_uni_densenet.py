@@ -97,23 +97,23 @@ def main_worker(local_rank: int, config: object):
     # get statistics
     mean_, std_ = compute_statistics(normalize_set=datasets['train'])
 
-    # TODO: change transform options
+    # TODO: change transform options - bring from utils. use --normalize store_true
     train_transform = Compose([ToTensor(),
                                ScaleIntensity(),
                                AddChannel(),
-                               Normalize(mean_, std_),
-                               Resize((96, 96, 96)),
+                               # Normalize(mean_, std_),
+                               Resize((config.image_size, config.image_size, config.image_size)),
                                ConvertImageDtype(torch.float32),
                                RandRotate90(prob=0.2),
                                RandFlip(prob=0.2),
-                               RandZoom(prob=0.2),
+                               # RandZoom(prob=0.2),
                                ])
 
     test_transform = Compose([ToTensor(),
                               ScaleIntensity(),
                               AddChannel(),
-                              Normalize(mean_, std_),
-                              Resize((96, 96, 96)),
+                              # Normalize(mean_, std_),
+                              Resize((config.image_size, config.image_size, config.image_size)),
                               ConvertImageDtype(torch.float32),
                               ])
 

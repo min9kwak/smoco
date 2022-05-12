@@ -10,13 +10,14 @@ from torch.utils.tensorboard import SummaryWriter
 from torchmetrics.functional.classification import accuracy, auroc
 from torchmetrics.functional.classification.f_beta import f1_score
 
-import wandb
-from rich.progress import Progress
 
+import wandb
 from utils.logging import make_epoch_description, get_rich_pbar
 from datasets.samplers import ImbalancedDatasetSampler
 from utils.optimization import get_optimizer
 from utils.optimization import get_cosine_scheduler
+
+from models.vit import UnimodalViT
 
 
 class Classification(object):
@@ -106,9 +107,10 @@ class Classification(object):
         train_loader = DataLoader(dataset=train_set, batch_size=self.batch_size,
                                   sampler=train_sampler, num_workers=self.num_workers,
                                   drop_last=True)
-        # TODO: drop_last = False... figure out the error
+
+        drop_last = True if type(self.network) == UnimodalViT else False
         test_loader = DataLoader(dataset=test_set, batch_size=self.batch_size, num_workers=self.num_workers,
-                                 drop_last=True)
+                                 drop_last=drop_last)
 
         # Logging
         logger = kwargs.get('logger', None)
