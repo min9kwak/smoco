@@ -2,11 +2,11 @@ import argparse
 from configs.base import ConfigBase
 
 
-class UnimodalDenseNetConfig(ConfigBase):
+class DenseNetMRIConfig(ConfigBase):
     """Configurations for MoCo."""
 
     def __init__(self, args=None, **kwargs):
-        super(UnimodalDenseNetConfig, self).__init__(args, **kwargs)
+        super(DenseNetMRIConfig, self).__init__(args, **kwargs)
 
     @staticmethod
     def task_specific_parser() -> argparse.ArgumentParser:
@@ -20,6 +20,8 @@ class UnimodalDenseNetConfig(ConfigBase):
 
     @property
     def task(self) -> str:
-        return 'uni-densenet'
+        return 'mri'
 
-# setattr(config, 'target_label', [int(a) for a in config.target_label.split(',')])
+    @property
+    def backbone(self) -> str:
+        return 'densenet'

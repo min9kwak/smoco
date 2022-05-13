@@ -2,11 +2,11 @@ import argparse
 from configs.base import ConfigBase
 
 
-class UnimodalVitConfig(ConfigBase):
+class VitMRIConfig(ConfigBase):
     """Configurations for MoCo."""
 
     def __init__(self, args=None, **kwargs):
-        super(UnimodalVitConfig, self).__init__(args, **kwargs)
+        super(VitMRIConfig, self).__init__(args, **kwargs)
 
     @staticmethod
     def task_specific_parser() -> argparse.ArgumentParser:
@@ -22,4 +22,8 @@ class UnimodalVitConfig(ConfigBase):
 
     @property
     def task(self) -> str:
-        return 'uni-vit'
+        return 'mri'
+
+    @property
+    def backbone(self) -> str:
+        return 'vit'

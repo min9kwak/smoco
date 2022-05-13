@@ -4,7 +4,6 @@ from monai.transforms import Compose, ToTensor, AddChannel
 from datasets.mri import MRI
 
 
-
 def compute_statistics(normalize_set):
     print('Start computing mean/std of the training dataset')
     normalize_transform = Compose([ToTensor(), AddChannel()])
@@ -35,3 +34,5 @@ def compute_statistics(normalize_set):
     print('Computing mean/std is finished')
 
     return mean_, std_
+
+

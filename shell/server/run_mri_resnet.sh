@@ -1,23 +1,19 @@
 echo "Experiments Started"
-SERVER=main
+SERVER=dgx
 GPUS=0
 
 RANDOM_STATE=2021
 BATCH_SIZE=16
+EPOCHS=100
 
-INIT_FEATUERS=32
-GROWTH_RATE=16
-BLOCK_CONFIG="6,12,24,16"
-BN_SIZE=2
-
-for EPOCHS in 100 200
+for ARCH in 18 50
 do
 	for LEARNING_RATE in 0.0001 0.0002
 	do
-		python ./run_uni_densenet.py \
+		python ./run_mri_resnet.py \
 		--gpus $GPUS \
 		--server $SERVER \
-		--root D:/data/ADNI \
+		--root /raidWorkspace/mingu/Data/ADNI \
 		--data_info labels/data_info.csv \
 		--random_state $RANDOM_STATE \
 		--epochs $EPOCHS \
@@ -30,11 +26,7 @@ do
 		--cosine_min_lr 0.0 \
 		--save_every 20 \
 		--enable_wandb \
-		--init_features $INIT_FEATUERS \
-		--growth_rate $GROWTH_RATE \
-		--block_config=$BLOCK_CONFIG \
-		--bn_size=$BN_SIZE \
-		--dropout_rate 0.0
+		--arch $ARCH
 	done
 done
 echo "Finished."

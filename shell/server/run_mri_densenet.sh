@@ -13,7 +13,7 @@ for EPOCHS in 100 200
 do
 	for LEARNING_RATE in 0.0001 0.0002
 	do
-		python ./run_uni_densenet.py \
+		python ./run_mri_densenet.py \
 		--gpus $GPUS \
 		--server $SERVER \
 		--root /raidWorkspace/mingu/Data/ADNI \
@@ -33,7 +33,7 @@ do
 		--growth_rate $GROWTH_RATE \
 		--block_config=$BLOCK_CONFIG \
 		--bn_size 4 \
-		--dropout_rate 0.0				
+		--dropout_rate 0.0
 	done
 done
 echo "Finished."

@@ -79,6 +79,7 @@ class ConfigBase(object):
         ckpt = os.path.join(
             self.checkpoint_root,
             self.task,          # 'scratch', 'denoising', 'pirl', 'simclr', ...
+            self.backbone,
             self.hash           # ...
             )
         os.makedirs(ckpt, exist_ok=True)
@@ -115,6 +116,7 @@ class ConfigBase(object):
         parser.add_argument('--data_info', type=str, default='labels/data_info.csv')
         parser.add_argument('--train_size', type=float, default=0.9)
         parser.add_argument('--image_size', type=int, default=96)
+        parser.add_argument('--normalize', action='store_true')
         parser.add_argument('--pin_memory', action='store_true')
         parser.add_argument('--random_state', type=int, default=2022)
         return parser

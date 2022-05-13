@@ -16,12 +16,18 @@ import torch.nn.functional as F
 
 from datasets.mri import MRI, MRIProcessor
 
-from configs.densenet import UnimodalDenseNetConfig
+from configs.base import ConfigBase
+from configs.vit import VitMRIConfig
+from configs.densenet import DenseNetMRIConfig
+from configs.resnet import ResNetMRIConfig
+
+from models.vit import UnimodalViT
 from models.densenet import UnimodalDenseNet
+from models.resnet import build_unimodal_resnet
+
 from tasks.unimodal import Classification
 
 from utils.logging import get_rich_logger
-
 from datasets.transforms import compute_statistics
 from monai.transforms import Compose, AddChannel, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom
 from torchvision.transforms import ConvertImageDtype, Normalize
@@ -30,7 +36,10 @@ from torchvision.transforms import ConvertImageDtype, Normalize
 def main():
     """Main function for single/distributed linear classification."""
 
-    config = UnimodalDenseNetConfig.parse_arguments()
+    # config = VitMRIConfig.parse_arguments()
+    config = DenseNetMRIConfig.parse_arguments()
+    # config = ResNetMRIConfig.parse_arguments()
+
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in config.gpus])
     num_gpus_per_node = len(config.gpus)
     world_size = config.num_nodes * num_gpus_per_node
@@ -40,7 +49,8 @@ def main():
     setattr(config, 'distributed', distributed)
 
     # str -> list arguments
-    setattr(config, 'block_config', tuple(int(a) for a in config.block_config.split(',')))
+    if config.backbone == 'densenet':
+        setattr(config, 'block_config', tuple(int(a) for a in config.block_config.split(',')))
 
     rich.print(config.__dict__)
     config.save()
@@ -74,19 +84,36 @@ def main_worker(local_rank: int, config: object):
     logger = get_rich_logger(logfile=logfile)
     if config.enable_wandb:
         wandb.init(
-            name=f'{config.task} : {config.hash}',
-            project=config.task,
+            name=f'{config.backbone} : {config.hash}',
+            project=f'sttr-{config.task}',
             config=config.__dict__
         )
 
     # Networks
-    network = UnimodalDenseNet(in_channels=1,
-                               out_channels=2,
-                               init_features=config.init_features,
-                               growth_rate=config.growth_rate,
-                               block_config=config.block_config,
-                               bn_size=config.bn_size,
-                               dropout_rate=config.dropout_rate)
+    if config.backbone == 'vit':
+        network = UnimodalViT(in_channels=1,
+                              img_size=(config.image_size, config.image_size, config.image_size),
+                              patch_size=(config.patch_size, config.patch_size, config.patch_size),
+                              hidden_size=config.hidden_size,
+                              mlp_dim=config.mlp_dim,
+                              num_layers=config.num_layers,
+                              num_heads=config.num_heads,
+                              pos_embed=config.pos_embed,
+                              num_classes=2,
+                              dropout_rate=config.dropout_rate)
+    elif config.bacnkbone == 'densenet':
+        network = UnimodalDenseNet(in_channels=1,
+                                   out_channels=2,
+                                   init_features=config.init_features,
+                                   growth_rate=config.growth_rate,
+                                   block_config=config.block_config,
+                                   bn_size=config.bn_size,
+                                   dropout_rate=config.dropout_rate)
+    elif config.backbone == 'resnet':
+        network = build_unimodal_resnet(arch=config.arch,
+                                        no_max_pool=config.no_max_pool,
+                                        in_channels=1,
+                                        num_classes=2)
 
     # load data
     data_processor = MRIProcessor(root=config.root,
@@ -95,7 +122,8 @@ def main_worker(local_rank: int, config: object):
     datasets = data_processor.process(train_size=config.train_size)
 
     # get statistics
-    mean_, std_ = compute_statistics(normalize_set=datasets['train'])
+    if config.normalize:
+        mean_, std_ = compute_statistics(normalize_set=datasets['train'])
 
     # TODO: change transform options - bring from utils. use --normalize store_true
     train_transform = Compose([ToTensor(),
