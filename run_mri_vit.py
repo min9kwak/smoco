@@ -101,7 +101,7 @@ def main_worker(local_rank: int, config: object):
                               pos_embed=config.pos_embed,
                               num_classes=2,
                               dropout_rate=config.dropout_rate)
-    elif config.bacnkbone == 'densenet':
+    elif config.backbone == 'densenet':
         network = UnimodalDenseNet(in_channels=1,
                                    out_channels=2,
                                    init_features=config.init_features,
