@@ -5,10 +5,11 @@ GPUS=0
 RANDOM_STATE=2021
 BATCH_SIZE=16
 EPOCHS=100
+ARCH=18
 
-for ARCH in 18 50
+for RANDOM_STATE in 2021 2022 2023
 do
-	for LEARNING_RATE in 0.0001 0.0002
+	for LEARNING_RATE in 0.0001
 	do
 		python ./run_mri_resnet.py \
 		--gpus $GPUS \
