@@ -18,7 +18,7 @@ from datasets.mri import MRI, MRIProcessor
 
 from configs.base import ConfigBase
 from configs.vit import VitMRIConfig
-from configs.densenet import DenseNetMRIConfig
+from configs.densenet import DenseNetPETConfig
 from configs.resnet import ResNetMRIConfig
 
 from models.vit import UnimodalViT

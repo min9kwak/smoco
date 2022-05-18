@@ -19,7 +19,7 @@ from datasets.pet import PET, PETProcessor
 
 from configs.base import ConfigBase
 from configs.vit import VitMRIConfig
-from configs.densenet import DenseNetMRIConfig
+from configs.densenet import DenseNetPETConfig
 from configs.resnet import ResNetMRIConfig
 
 from models.vit import UnimodalViT
@@ -38,7 +38,7 @@ def main():
     """Main function for single/distributed linear classification."""
 
     # config = VitMRIConfig.parse_arguments()
-    config = DenseNetMRIConfig.parse_arguments()
+    config = DenseNetPETConfig.parse_arguments()
     # config = ResNetMRIConfig.parse_arguments()
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in config.gpus])
@@ -80,6 +80,7 @@ def main_worker(local_rank: int, config: object):
 
     config.batch_size = config.batch_size // config.world_size
     config.num_workers = config.num_workers // config.num_gpus_per_node
+    config.task = config.data_type
 
     logfile = os.path.join(config.checkpoint_dir, 'main.log')
     logger = get_rich_logger(logfile=logfile)
@@ -117,10 +118,10 @@ def main_worker(local_rank: int, config: object):
                                         num_classes=2)
 
     # load data
-    if config.data_type == 'mri':
+    if config.task == 'mri':
         PROCESSOR = MRIProcessor
         DATA = MRI
-    elif config.data_type == 'pet':
+    elif config.task == 'pet':
         PROCESSOR = PETProcessor
         DATA = PET
     else:

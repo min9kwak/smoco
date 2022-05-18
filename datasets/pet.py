@@ -1,14 +1,8 @@
-import matplotlib.pyplot as plt
-import seaborn as sns
-
 import os
 
 import torch
-import tqdm
-from nilearn import surface
 import nibabel as nib
 import pandas as pd
-import numpy as np
 
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
