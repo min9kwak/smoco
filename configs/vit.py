@@ -2,11 +2,11 @@ import argparse
 from configs.base import ConfigBase
 
 
-class VitMRIConfig(ConfigBase):
+class VitUniConfig(ConfigBase):
     """Configurations for MoCo."""
 
     def __init__(self, args=None, **kwargs):
-        super(VitMRIConfig, self).__init__(args, **kwargs)
+        super(VitUniConfig, self).__init__(args, **kwargs)
 
     @staticmethod
     def task_specific_parser() -> argparse.ArgumentParser:

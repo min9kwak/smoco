@@ -2,11 +2,11 @@ import argparse
 from configs.base import ConfigBase
 
 
-class ResNetMRIConfig(ConfigBase):
+class ResNetUniConfig(ConfigBase):
     """Configurations for MoCo."""
 
     def __init__(self, args=None, **kwargs):
-        super(ResNetMRIConfig, self).__init__(args, **kwargs)
+        super(ResNetUniConfig, self).__init__(args, **kwargs)
 
     @staticmethod
     def task_specific_parser() -> argparse.ArgumentParser:

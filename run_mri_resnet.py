@@ -17,9 +17,9 @@ import torch.nn.functional as F
 from datasets.mri import MRI, MRIProcessor
 
 from configs.base import ConfigBase
-from configs.vit import VitMRIConfig
-from configs.densenet import DenseNetPETConfig
-from configs.resnet import ResNetMRIConfig
+from configs.vit import VitUniConfig
+from configs.densenet import DenseNetUniConfig
+from configs.resnet import ResNetUniConfig
 
 from models.vit import UnimodalViT
 from models.densenet import UnimodalDenseNet
@@ -37,8 +37,10 @@ def main():
     """Main function for single/distributed linear classification."""
 
     # config = VitMRIConfig.parse_arguments()
-    # config = DenseNetMRIConfig.parse_arguments()
-    config = ResNetMRIConfig.parse_arguments()
+    # config = DenseNetUniConfig.parse_arguments()
+    config = ResNetUniConfig.parse_arguments()
+
+    config.task = config.data_type
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in config.gpus])
     num_gpus_per_node = len(config.gpus)
