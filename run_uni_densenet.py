@@ -15,6 +15,7 @@ import torch.distributed as dist
 import torch.nn.functional as F
 
 from datasets.mri import MRI, MRIProcessor
+from datasets.pet import PET, PETProcessor
 
 from configs.base import ConfigBase
 from configs.vit import VitMRIConfig
@@ -116,9 +117,18 @@ def main_worker(local_rank: int, config: object):
                                         num_classes=2)
 
     # load data
-    data_processor = MRIProcessor(root=config.root,
-                                  data_info=config.data_info,
-                                  random_state=config.random_state)
+    if config.data_type == 'mri':
+        PROCESSOR = MRIProcessor
+        DATA = MRI
+    elif config.data_type == 'pet':
+        PROCESSOR = PETProcessor
+        DATA = PET
+    else:
+        raise NotImplementedError
+
+    data_processor = PROCESSOR(root=config.root,
+                               data_info=config.data_info,
+                               random_state=config.random_state)
     datasets = data_processor.process(train_size=config.train_size)
 
     # get statistics
@@ -145,8 +155,8 @@ def main_worker(local_rank: int, config: object):
                               ConvertImageDtype(torch.float32),
                               ])
 
-    train_set = MRI(dataset=datasets['train'], transform=train_transform, pin_memory=config.pin_memory)
-    test_set = MRI(dataset=datasets['test'], transform=test_transform, pin_memory=config.pin_memory)
+    train_set = DATA(dataset=datasets['train'], transform=train_transform, pin_memory=config.pin_memory)
+    test_set = DATA(dataset=datasets['test'], transform=test_transform, pin_memory=config.pin_memory)
 
     # Reconfigure batch-norm layers
     loss_function = nn.CrossEntropyLoss()

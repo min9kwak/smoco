@@ -2,7 +2,7 @@ echo "Experiments Started"
 SERVER=dgx
 GPUS=0
 
-DATA_TYPE=mri
+DATA_TYPE=pet
 
 RANDOM_STATE=2021
 BATCH_SIZE=16

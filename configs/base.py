@@ -112,6 +112,7 @@ class ConfigBase(object):
         """Returns an `argparse.ArgumentParser` instance containing data-related arguments."""
 
         parser = argparse.ArgumentParser("Data", add_help=False)
+        parser.add_argument('--data_type', type=str, choices=('mri', 'pet', 'multi'))
         parser.add_argument('--root', type=str, default='D:/data/ADNI')
         parser.add_argument('--data_info', type=str, default='labels/data_info.csv')
         parser.add_argument('--train_size', type=float, default=0.9)
