@@ -16,11 +16,5 @@ class ResNetUniConfig(ConfigBase):
         return parser
 
     @property
-    def task(self) -> str:
-        return 'mri'
-
-    @property
     def backbone(self) -> str:
         return 'resnet'
-
-# setattr(config, 'target_label', [int(a) for a in config.target_label.split(',')])

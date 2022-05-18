@@ -25,6 +25,8 @@ class ConfigBase(object):
         if not hasattr(self, 'hash'):
             self.hash = datetime.datetime.now().strftime("%Y-%m-%d_%H-%M-%S")
 
+        self._task = None
+
     @classmethod
     def parse_arguments(cls) -> argparse.Namespace:
         """Create a configuration object from command line arguments."""
@@ -68,7 +70,11 @@ class ConfigBase(object):
 
     @property
     def task(self):
-        raise NotImplementedError
+        return self._task
+
+    @task.setter
+    def task(self, value):
+        self._task = value
 
     @property
     def model_name(self) -> str:
@@ -112,7 +118,7 @@ class ConfigBase(object):
         """Returns an `argparse.ArgumentParser` instance containing data-related arguments."""
 
         parser = argparse.ArgumentParser("Data", add_help=False)
-        parser.add_argument('--data_type', type=str, choices=('mri', 'pet', 'multi'))
+        parser.add_argument('--data_type', type=str, choices=('mri', 'pet', 'multi'), required=True)
         parser.add_argument('--root', type=str, default='D:/data/ADNI')
         parser.add_argument('--data_info', type=str, default='labels/data_info.csv')
         parser.add_argument('--train_size', type=float, default=0.9)

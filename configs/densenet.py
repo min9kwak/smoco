@@ -19,9 +19,5 @@ class DenseNetUniConfig(ConfigBase):
         return parser
 
     @property
-    def task(self) -> str:
-        return 'mri'
-
-    @property
     def backbone(self) -> str:
         return 'densenet'
