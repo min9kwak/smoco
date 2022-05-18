@@ -1,4 +1,5 @@
 import os
+import pickle
 
 import torch
 import nibabel as nib
@@ -26,20 +27,16 @@ class PETProcessor(object):
         train_info = self.data_info[self.data_info['RID'].isin(train_rids)]
         test_info = self.data_info[self.data_info['RID'].isin(test_rids)]
 
-        train_files = [(os.path.join(self.root, 'FS7', row.MRI, 'mri/brainmask.mgz'),
-                        os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.nii.gz'))
+        train_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
                        for _, row in train_info.iterrows()]
         y_train = train_info['Conv'].values
 
-        test_files = [(os.path.join(self.root, 'FS7', row.MRI, 'mri/brainmask.mgz'),
-                       os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.nii.gz'))
+        test_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
                       for _, row in test_info.iterrows()]
         y_test = test_info['Conv'].values
 
-        assert all([os.path.isfile(a) for a, b in train_files])
-        assert all([os.path.isfile(b) for a, b in train_files])
-        assert all([os.path.isfile(a) for a, b in test_files])
-        assert all([os.path.isfile(b) for a, b in test_files])
+        assert all([os.path.isfile(a) for a in train_files])
+        assert all([os.path.isfile(a) for a in test_files])
 
         datasets = {'train': {'path': train_files, 'y': y_train},
                     'test': {'path': test_files, 'y': y_test}}
@@ -86,12 +83,8 @@ class PET(Dataset):
         return dict(x=img, y=y, idx=idx)
 
     def load_image(self, path):
-        mask, image = path
-        mask, image = nib.load(mask), nib.load(image)
-        mask, image = nib.as_closest_canonical(mask), nib.as_closest_canonical(image)
-        mask, image = mask.get_fdata(), image.get_fdata().squeeze()
-        mask = (mask == 0)
-        image[mask] = 0
+        with open(path, 'rb') as f:
+            image = pickle.load(f)
         image = self.slice_image(image)
         # image = image / 255
         return image
