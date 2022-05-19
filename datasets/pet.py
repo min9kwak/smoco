@@ -24,6 +24,9 @@ class PETProcessor(object):
         rids = self.data_info['RID'].unique()
         train_rids, test_rids = train_test_split(rids, train_size=train_size, random_state=self.random_state)
 
+        self.train_rids = train_rids
+        self.test_rids = test_rids
+
         train_info = self.data_info[self.data_info['RID'].isin(train_rids)]
         test_info = self.data_info[self.data_info['RID'].isin(test_rids)]
 
@@ -98,30 +101,14 @@ class PET(Dataset):
 
 if __name__ == '__main__':
 
-    import matplotlib.pyplot as plt
-    import seaborn as sns
-    from torch.utils.data import DataLoader
-    from monai.transforms import AddChannel, Compose, Resize, ToTensor
+    import numpy as np
+    for random_state in [2021, 2022, 2023, 2024, 2025]:
+        processor = PETProcessor(root='D:/data/ADNI',
+                                 data_info='labels/data_info.csv',
+                                 random_state=random_state)
+        datasets = processor.process(train_size=0.9)
+        test_set = datasets['test']
 
-    processor = PETProcessor(root='D:/data/ADNI',
-                             data_info='labels/data_info.csv',
-                             random_state=2022)
-    datasets = processor.process(train_size=0.9)
-
-
-    from torchvision.transforms import ConvertImageDtype
-    train_transform = Compose([ToTensor(),
-                               AddChannel(),
-                               Resize((96, 96, 96)),
-                               ConvertImageDtype(torch.float32)])
-    train_set = datasets['train']
-    train_set = PET(dataset=train_set, transform=train_transform, pin_memory=False)
-    train_loader = DataLoader(train_set, batch_size=2, shuffle=False)
-
-    for batch in train_loader:
-        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
-        sns.heatmap(batch['x'][0, 0, 48, :, :], cmap='binary', ax=axs[0])
-        sns.heatmap(batch['x'][0, 0, :, 48, :], cmap='binary', ax=axs[1])
-        sns.heatmap(batch['x'][0, 0, :, :, 48], cmap='binary', ax=axs[2])
-        plt.show()
-        break
+        print(np.bincount(test_set['y']))
+    bins = np.bincount(processor.data_info['Conv'].values)
+    bins[0]/np.sum(bins)

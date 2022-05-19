@@ -23,6 +23,9 @@ class MRIProcessor(object):
         rids = self.data_info['RID'].unique()
         train_rids, test_rids = train_test_split(rids, train_size=train_size, random_state=self.random_state)
 
+        self.train_rids = train_rids
+        self.test_rids = test_rids
+
         train_files = self.data_info[self.data_info['RID'].isin(train_rids)]['MRI'].tolist()
         test_files = self.data_info[self.data_info['RID'].isin(test_rids)]['MRI'].tolist()
 
