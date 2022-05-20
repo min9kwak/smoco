@@ -29,7 +29,7 @@ from models.resnet import build_unimodal_resnet
 from tasks.unimodal import Classification
 
 from utils.logging import get_rich_logger
-from datasets.transforms import make_transforms
+from datasets.transforms import make_transforms, compute_statistics
 
 
 def main():
@@ -131,9 +131,14 @@ def main_worker(local_rank: int, config: object):
                                random_state=config.random_state)
     datasets = data_processor.process(train_size=config.train_size)
 
+    if config.intensity == 'normalize':
+        mean_std = compute_statistics(DATA=DATA, normalize_set=datasets['train'])
+    else:
+        mean_std = (None, None)
 
     train_transform, test_transform = make_transforms(image_size=config.image_size,
                                                       intensity=config.intensity,
+                                                      mean_std=mean_std,
                                                       rotate=config.rotate,
                                                       flip=config.flip,
                                                       zoom=config.zoom,

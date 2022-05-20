@@ -1,7 +1,7 @@
+import time
+
 import torch
 from torch.utils.data import DataLoader
-from datasets.mri import MRI
-
 from monai.transforms import (
     Compose, AddChannel, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom,
     NormalizeIntensity, RandGaussianNoise
@@ -11,6 +11,7 @@ from torchvision.transforms import ConvertImageDtype, Normalize
 
 def make_transforms(image_size: int = 96,
                     intensity: str = 'normalize',
+                    mean_std: tuple = (None, None),
                     rotate: bool = True,
                     flip: bool = True,
                     zoom: bool = True,
@@ -26,7 +27,8 @@ def make_transforms(image_size: int = 96,
     elif intensity == 'scale':
         base_transform.insert(1, ScaleIntensity())
     elif intensity == 'normalize':
-        base_transform.insert(1, NormalizeIntensity())
+        assert all(mean_std)
+        base_transform.insert(1, Normalize(*mean_std))
     else:
         raise NotImplementedError
 
@@ -39,7 +41,6 @@ def make_transforms(image_size: int = 96,
     if zoom:
         train_transform.append(RandZoom(prob=prob))
     if blur:
-        assert intensity == 'normalize', 'Gaussian blur can be only applied with normalized intensity'
         train_transform.append(RandGaussianNoise(prob=prob, std=blur_std))
 
     train_transform.append(ConvertImageDtype(torch.float32))
@@ -48,11 +49,13 @@ def make_transforms(image_size: int = 96,
     return Compose(train_transform), Compose(test_transform)
 
 
-def compute_statistics(normalize_set):
-    # TODO: change dataset MRI -> for both MRI and PET
+def compute_statistics(DATA, normalize_set):
+
     print('Start computing mean/std of the training dataset')
+
+    start_time = time.time()
     normalize_transform = Compose([ToTensor(), AddChannel()])
-    normalize_set = MRI(dataset=normalize_set, transform=normalize_transform, pin_memory=False)
+    normalize_set = DATA(dataset=normalize_set, transform=normalize_transform, pin_memory=False)
     normalize_loader = DataLoader(normalize_set, batch_size=16, shuffle=False, drop_last=False)
 
     count = 0
@@ -76,6 +79,6 @@ def compute_statistics(normalize_set):
     std_ = torch.sqrt(second_moment - first_moment ** 2)
     mean_ = mean_.item()
     std_ = std_.item()
-    print('Computing mean/std is finished')
+    print(f'Mean and std values are computed in {time.time() - start_time:.2f} seconds')
 
-    return mean_, std_
+    return (mean_, std_)

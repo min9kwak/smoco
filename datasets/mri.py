@@ -4,6 +4,7 @@ import torch
 import pandas as pd
 import numpy as np
 import pickle
+import nibabel as nib
 
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
@@ -88,7 +89,7 @@ class MRI(Dataset):
         image = nib.as_closest_canonical(image)
         image = image.get_fdata()
         image = self.slice_image(image)
-        
+
         return image
 
     def slice_image(self, image):
@@ -100,33 +101,32 @@ class MRI(Dataset):
 
 if __name__ == '__main__':
 
+    import time
     import seaborn as sns
     import matplotlib.pyplot as plt
     from torch.utils.data import DataLoader
-    from monai.transforms import (
-        AddChannel,
-        Compose,
-        RandRotate90,
-        Resize,
-        ScaleIntensity,
-        EnsureType,
-        ToTensor,
-        RandFlip,
-        RandZoom,
-        CropForeground
-    )
+
+    from datasets.transforms import compute_statistics, make_transforms
 
     processor = MRIProcessor(root='D:/data/ADNI',
                              data_info='labels/data_info.csv',
                              random_state=2022)
     datasets = processor.process(train_size=0.9)
 
+    s1 = time.time()
+    mean_std = compute_statistics(DATA=MRI, normalize_set=datasets['train'])
+    e1 = time.time()
+    print(e1 - s1)
+    train_transform, test_transform = make_transforms(image_size=96,
+                                                      intensity='normalize',
+                                                      mean_std=mean_std,
+                                                      rotate=True,
+                                                      flip=True,
+                                                      zoom=True,
+                                                      blur=True,
+                                                      blur_std=0.1,
+                                                      prob=1.0)
 
-    from torchvision.transforms import Normalize, ConvertImageDtype
-    train_transform = Compose([ToTensor(),
-                               AddChannel(),
-                               Resize((96, 96, 96)),
-                               ConvertImageDtype(torch.float32)])
     train_set = datasets['train']
     train_set = MRI(dataset=train_set, transform=train_transform, pin_memory=False)
     train_loader = DataLoader(train_set, batch_size=2, shuffle=False)
@@ -145,7 +145,6 @@ if __name__ == '__main__':
     import os
     DATA_DIR = "D:/data/ADNI/FS7/m127S0925L111010M615TCF/mri"
     image_file = os.path.join(DATA_DIR, 'brain.mgz')
-    import nibabel as nib
 
     import time
     s1 = time.time()
