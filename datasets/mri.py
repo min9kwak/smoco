@@ -29,10 +29,10 @@ class MRIProcessor(object):
         train_files = self.data_info[self.data_info['RID'].isin(train_rids)]['MRI'].tolist()
         test_files = self.data_info[self.data_info['RID'].isin(test_rids)]['MRI'].tolist()
 
-        brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.pkl') for f in train_files]
+        brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in train_files]
         y_train = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in train_files])
 
-        brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.pkl') for f in test_files]
+        brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in test_files]
         y_test = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in test_files])
 
         assert all([os.path.isfile(b) for b in brain_train])
@@ -83,9 +83,12 @@ class MRI(Dataset):
         return dict(x=img, y=y, idx=idx)
 
     def load_image(self, path):
-        with open(path, 'rb') as f:
-            image = pickle.load(f)
+
+        image = nib.load(path)
+        image = nib.as_closest_canonical(image)
+        image = image.get_fdata()
         image = self.slice_image(image)
+        
         return image
 
     def slice_image(self, image):
@@ -135,3 +138,23 @@ if __name__ == '__main__':
         sns.heatmap(batch['x'][0, 0, :, :, 48], cmap='binary', ax=axs[2])
         plt.show()
         break
+
+    # TODO: check loading speed of MRI (mgz and pkl)
+    import glob
+    import pickle
+    import os
+    DATA_DIR = "D:/data/ADNI/FS7/m127S0925L111010M615TCF/mri"
+    image_file = os.path.join(DATA_DIR, 'brain.mgz')
+    import nibabel as nib
+
+    import time
+    s1 = time.time()
+    image = nib.load(image_file)
+    image = nib.as_closest_canonical(image)
+    image = image.get_fdata()
+    e1 = time.time()
+
+    s2 = time.time()
+    with open(image_file.replace('.mgz', '.pkl'), 'rb') as f:
+        image = pickle.load(f)
+    e2 = time.time()

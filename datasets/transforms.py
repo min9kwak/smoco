@@ -19,7 +19,6 @@ def make_transforms(image_size: int = 96,
                     prob: float = 0.2):
 
     base_transform = [ToTensor(),
-                      ConvertImageDtype(torch.float32),
                       AddChannel(),
                       Resize((image_size, image_size, image_size))]
     if intensity is None:
@@ -42,6 +41,9 @@ def make_transforms(image_size: int = 96,
     if blur:
         assert intensity == 'normalize', 'Gaussian blur can be only applied with normalized intensity'
         train_transform.append(RandGaussianNoise(prob=prob, std=blur_std))
+
+    train_transform.append(ConvertImageDtype(torch.float32))
+    test_transform.append(ConvertImageDtype(torch.float32))
 
     return Compose(train_transform), Compose(test_transform)
 
