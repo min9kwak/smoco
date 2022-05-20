@@ -123,9 +123,17 @@ class ConfigBase(object):
         parser.add_argument('--data_info', type=str, default='labels/data_info.csv')
         parser.add_argument('--train_size', type=float, default=0.9)
         parser.add_argument('--image_size', type=int, default=96)
-        parser.add_argument('--normalize', action='store_true')
         parser.add_argument('--pin_memory', action='store_true')
         parser.add_argument('--random_state', type=int, default=2022)
+
+        parser.add_argument('--intensity', type=str, choices=('scale', 'normalize'))
+        parser.add_argument('--rotate', action='store_true')
+        parser.add_argument('--flip', action='store_true')
+        parser.add_argument('--zoom', action='store_true')
+        parser.add_argument('--blur', action='store_true')
+        parser.add_argument('--blur_std', type=float, default=0.05)
+        parser.add_argument('--prob', type=float, default=0.2)
+
         return parser
 
     @staticmethod

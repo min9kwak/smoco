@@ -3,8 +3,10 @@ SERVER=dgx
 GPUS=0
 
 DATA_TYPE=pet
-
 RANDOM_STATE=2021
+
+INTENSITY=normalize
+
 BATCH_SIZE=16
 EPOCHS=100
 
@@ -12,7 +14,8 @@ INIT_FEATUERS=32
 GROWTH_RATE=16
 BLOCK_CONFIG="6,12,24,16"
 
-for RANDOM_STATE in 2021 2022 2023
+
+for BLUR_STD in 0.1 0.05
 do
 	for LEARNING_RATE in 0.0001
 	do
@@ -23,6 +26,11 @@ do
 		--root /raidWorkspace/mingu/Data/ADNI \
 		--data_info labels/data_info.csv \
 		--random_state $RANDOM_STATE \
+		--intensity $INTENSITY \
+		--rotate \
+		--flip \
+		--blur \
+		--blur_std $BLUR_STD \
 		--epochs $EPOCHS \
 		--batch_size $BATCH_SIZE \
 		--optimizer adamw \

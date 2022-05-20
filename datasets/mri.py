@@ -3,7 +3,7 @@ import os
 import torch
 import pandas as pd
 import numpy as np
-import nibabel as nib
+import pickle
 
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
@@ -29,10 +29,10 @@ class MRIProcessor(object):
         train_files = self.data_info[self.data_info['RID'].isin(train_rids)]['MRI'].tolist()
         test_files = self.data_info[self.data_info['RID'].isin(test_rids)]['MRI'].tolist()
 
-        brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in train_files]
+        brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.pkl') for f in train_files]
         y_train = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in train_files])
 
-        brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in test_files]
+        brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.pkl') for f in test_files]
         y_test = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in test_files])
 
         assert all([os.path.isfile(b) for b in brain_train])
@@ -83,11 +83,9 @@ class MRI(Dataset):
         return dict(x=img, y=y, idx=idx)
 
     def load_image(self, path):
-        image = nib.load(path)
-        image = nib.as_closest_canonical(image)
-        image = image.get_fdata()
+        with open(path, 'rb') as f:
+            image = pickle.load(f)
         image = self.slice_image(image)
-        # image = image / 255
         return image
 
     def slice_image(self, image):

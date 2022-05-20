@@ -29,9 +29,7 @@ from models.resnet import build_unimodal_resnet
 from tasks.unimodal import Classification
 
 from utils.logging import get_rich_logger
-from datasets.transforms import compute_statistics
-from monai.transforms import Compose, AddChannel, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom
-from torchvision.transforms import ConvertImageDtype, Normalize
+from datasets.transforms import make_transforms
 
 
 def main():
@@ -133,29 +131,15 @@ def main_worker(local_rank: int, config: object):
                                random_state=config.random_state)
     datasets = data_processor.process(train_size=config.train_size)
 
-    # get statistics
-    if config.normalize:
-        mean_, std_ = compute_statistics(normalize_set=datasets['train'])
 
-    # TODO: change transform options - bring from utils. use --normalize store_true
-    train_transform = Compose([ToTensor(),
-                               ScaleIntensity(),
-                               AddChannel(),
-                               # Normalize(mean_, std_),
-                               Resize((config.image_size, config.image_size, config.image_size)),
-                               ConvertImageDtype(torch.float32),
-                               RandRotate90(prob=0.2),
-                               RandFlip(prob=0.2),
-                               # RandZoom(prob=0.2),
-                               ])
-
-    test_transform = Compose([ToTensor(),
-                              ScaleIntensity(),
-                              AddChannel(),
-                              # Normalize(mean_, std_),
-                              Resize((config.image_size, config.image_size, config.image_size)),
-                              ConvertImageDtype(torch.float32),
-                              ])
+    train_transform, test_transform = make_transforms(image_size=config.image_size,
+                                                      intensity=config.intensity,
+                                                      rotate=config.rotate,
+                                                      flip=config.flip,
+                                                      zoom=config.zoom,
+                                                      blur=config.blur,
+                                                      blur_std=config.blur_std,
+                                                      prob=config.prob)
 
     train_set = DATA(dataset=datasets['train'], transform=train_transform, pin_memory=config.pin_memory)
     test_set = DATA(dataset=datasets['test'], transform=test_transform, pin_memory=config.pin_memory)

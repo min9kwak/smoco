@@ -89,7 +89,6 @@ class PET(Dataset):
         with open(path, 'rb') as f:
             image = pickle.load(f)
         image = self.slice_image(image)
-        # image = image / 255
         return image
 
     def slice_image(self, image):
