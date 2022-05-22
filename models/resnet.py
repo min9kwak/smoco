@@ -166,7 +166,7 @@ def build_unimodal_resnet(arch: int = 18, **kwargs):
     if arch == 10:
         return _resnet(ResNetBlock, [1, 1, 1, 1], [64, 128, 256, 512], **kwargs)
     elif arch == 18:
-        return _resnet(ResNetBlock, [1, 1, 1, 1], [64, 128, 256, 512], **kwargs)
+        return _resnet(ResNetBlock, [2, 2, 2, 2], [64, 128, 256, 512], **kwargs)
     elif arch == 34:
         return _resnet(ResNetBlock, [3, 4, 6, 3], [64, 128, 256, 512], **kwargs)
     elif arch == 50:

@@ -3,18 +3,15 @@
 import os
 import sys
 import time
-import json
 import rich
 import numpy as np
 import wandb
 
 import torch
 import torch.nn as nn
-import torch.multiprocessing as mp
-import torch.distributed as dist
-import torch.nn.functional as F
 
 from datasets.mri import MRI, MRIProcessor
+from datasets.pet import PET, PETProcessor
 
 from configs.base import ConfigBase
 from configs.vit import VitUniConfig
@@ -28,9 +25,7 @@ from models.resnet import build_unimodal_resnet
 from tasks.unimodal import Classification
 
 from utils.logging import get_rich_logger
-from datasets.transforms import compute_statistics
-from monai.transforms import Compose, AddChannel, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom
-from torchvision.transforms import ConvertImageDtype, Normalize
+from datasets.transforms import make_transforms, compute_statistics
 
 
 def main():
@@ -118,37 +113,37 @@ def main_worker(local_rank: int, config: object):
                                         num_classes=2)
 
     # load data
-    data_processor = MRIProcessor(root=config.root,
-                                  data_info=config.data_info,
-                                  random_state=config.random_state)
+    if config.task == 'mri':
+        PROCESSOR = MRIProcessor
+        DATA = MRI
+    elif config.task == 'pet':
+        PROCESSOR = PETProcessor
+        DATA = PET
+    else:
+        raise NotImplementedError
+
+    data_processor = PROCESSOR(root=config.root,
+                               data_info=config.data_info,
+                               random_state=config.random_state)
     datasets = data_processor.process(train_size=config.train_size)
 
-    # get statistics
-    if config.normalize:
-        mean_, std_ = compute_statistics(normalize_set=datasets['train'])
+    if config.intensity == 'normalize':
+        mean_std = compute_statistics(DATA=DATA, normalize_set=datasets['train'])
+    else:
+        mean_std = (None, None)
 
-    # TODO: change transform options - bring from utils. use --normalize store_true
-    train_transform = Compose([ToTensor(),
-                               ScaleIntensity(),
-                               AddChannel(),
-                               # Normalize(mean_, std_),
-                               Resize((config.image_size, config.image_size, config.image_size)),
-                               ConvertImageDtype(torch.float32),
-                               RandRotate90(prob=0.2),
-                               RandFlip(prob=0.2),
-                               # RandZoom(prob=0.2),
-                               ])
+    train_transform, test_transform = make_transforms(image_size=config.image_size,
+                                                      intensity=config.intensity,
+                                                      mean_std=mean_std,
+                                                      rotate=config.rotate,
+                                                      flip=config.flip,
+                                                      zoom=config.zoom,
+                                                      blur=config.blur,
+                                                      blur_std=config.blur_std,
+                                                      prob=config.prob)
 
-    test_transform = Compose([ToTensor(),
-                              ScaleIntensity(),
-                              AddChannel(),
-                              # Normalize(mean_, std_),
-                              Resize((config.image_size, config.image_size, config.image_size)),
-                              ConvertImageDtype(torch.float32),
-                              ])
-
-    train_set = MRI(dataset=datasets['train'], transform=train_transform, pin_memory=config.pin_memory)
-    test_set = MRI(dataset=datasets['test'], transform=test_transform, pin_memory=config.pin_memory)
+    train_set = DATA(dataset=datasets['train'], transform=train_transform, pin_memory=config.pin_memory)
+    test_set = DATA(dataset=datasets['test'], transform=test_transform, pin_memory=config.pin_memory)
 
     # Reconfigure batch-norm layers
     loss_function = nn.CrossEntropyLoss()
