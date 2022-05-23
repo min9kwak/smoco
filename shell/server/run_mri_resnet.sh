@@ -18,9 +18,10 @@ for RANDOM_STATE in 2021 2022 2023
 do
 	for LEARNING_RATE in 0.0001
 	do
-		python ./run_mri_resnet.py \
+		python ./run_uni_resnet.py \
 		--gpus $GPUS \
 		--server $SERVER \
+		--data_type $DATA_TYPE \
 		--root /raidWorkspace/mingu/Data/ADNI \
 		--data_info labels/data_info.csv \
 		--train_size $TRAIN_SIZE \
