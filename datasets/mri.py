@@ -30,10 +30,10 @@ class MRIProcessor(object):
         train_files = self.data_info[self.data_info['RID'].isin(train_rids)]['MRI'].tolist()
         test_files = self.data_info[self.data_info['RID'].isin(test_rids)]['MRI'].tolist()
 
-        brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.pkl') for f in train_files]
+        brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in train_files]
         y_train = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in train_files])
 
-        brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.pkl') for f in test_files]
+        brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in test_files]
         y_test = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in test_files])
 
         assert all([os.path.isfile(b) for b in brain_train])
