@@ -85,8 +85,9 @@ class MRI(Dataset):
 
     def load_image(self, path):
 
-        with open(path, 'rb') as f:
-            image = pickle.load(f)
+        image = nib.load(path)
+        image = nib.as_closest_canonical(image)
+        image = image.get_fdata()
         image = self.slice_image(image)
 
         return image
