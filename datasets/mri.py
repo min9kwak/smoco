@@ -16,20 +16,28 @@ class MRIProcessor(object):
                  root: str,
                  data_info: str,
                  random_state: int = 2022):
+
         self.root = root
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'MONTH': int, 'Conv': int})
+
+        # unlabeled and labeled
+        self.u_data_info = self.data_info[self.data_info['Conv'].isin([-1])]
         self.data_info = self.data_info[self.data_info['Conv'].isin([0, 1])]
+
         self.random_state = random_state
 
     def process(self, train_size):
+
         rids = self.data_info['RID'].unique()
         train_rids, test_rids = train_test_split(rids, train_size=train_size, random_state=self.random_state)
 
         self.train_rids = train_rids
         self.test_rids = test_rids
+        self.u_data_info = self.u_data_info[~self.u_data_info['RID'].isin(test_rids)]
 
         train_files = self.data_info[self.data_info['RID'].isin(train_rids)]['MRI'].tolist()
         test_files = self.data_info[self.data_info['RID'].isin(test_rids)]['MRI'].tolist()
+        u_train_files = self.u_data_info['MRI'].tolist()
 
         brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in train_files]
         y_train = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in train_files])
@@ -41,11 +49,16 @@ class MRIProcessor(object):
         brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in test_files]
         y_test = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in test_files])
 
+        u_brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in u_train_files]
+        u_y_train = np.array([self.u_data_info[self.u_data_info['MRI'] == f]['Conv'].values[0] for f in u_train_files])
+
         assert all([os.path.isfile(b) for b in brain_train])
         assert all([os.path.isfile(b) for b in brain_test])
+        assert all([os.path.isfile(b) for b in u_brain_train])
 
         datasets = {'train': {'path': brain_train, 'y': y_train},
-                    'test': {'path': brain_test, 'y': y_test}}
+                    'test': {'path': brain_test, 'y': y_test},
+                    'u_train': {'path': u_brain_train, 'y': u_y_train}}
 
         return datasets
 

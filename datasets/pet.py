@@ -14,18 +14,25 @@ class PETProcessor(object):
                  root: str,
                  data_info: str,
                  random_state: int = 2022):
+
         self.root = root
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'MONTH': int, 'Conv': int})
-        self.data_info = self.data_info[self.data_info['Conv'].isin([0, 1])]
         self.data_info = self.data_info[~self.data_info.PET.isna()]
+
+        # unlabeled and labeled
+        self.u_data_info = self.data_info[self.data_info['Conv'].isin([-1])]
+        self.data_info = self.data_info[self.data_info['Conv'].isin([0, 1])]
+
         self.random_state = random_state
 
     def process(self, train_size):
+
         rids = self.data_info['RID'].unique()
         train_rids, test_rids = train_test_split(rids, train_size=train_size, random_state=self.random_state)
 
         self.train_rids = train_rids
         self.test_rids = test_rids
+        self.u_data_info = self.u_data_info[~self.u_data_info['RID'].isin(test_rids)]
 
         train_info = self.data_info[self.data_info['RID'].isin(train_rids)]
         test_info = self.data_info[self.data_info['RID'].isin(test_rids)]
@@ -42,11 +49,17 @@ class PETProcessor(object):
                       for _, row in test_info.iterrows()]
         y_test = test_info['Conv'].values
 
+        u_train_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
+                         for _, row in self.u_data_info.iterrows()]
+        u_y_train = self.u_data_info['Conv'].values
+
         assert all([os.path.isfile(a) for a in train_files])
         assert all([os.path.isfile(a) for a in test_files])
+        assert all([os.path.isfile(a) for a in u_train_files])
 
         datasets = {'train': {'path': train_files, 'y': y_train},
-                    'test': {'path': test_files, 'y': y_test}}
+                    'test': {'path': test_files, 'y': y_test},
+                    'u_train': {'path': u_train_files, 'y': u_y_train}}
 
         return datasets
 
@@ -110,6 +123,8 @@ if __name__ == '__main__':
                                  data_info='labels/data_info.csv',
                                  random_state=random_state)
         datasets = processor.process(train_size=0.9)
+
+        datasets['u_train']
         test_set = datasets['test']
 
         print(np.bincount(test_set['y']))
