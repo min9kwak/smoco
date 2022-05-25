@@ -18,7 +18,7 @@ class LinearClassifier(HeadBase):
             in_channels: int, number of input feature maps.
             num_classes: int, number of output features.
         """
-        super(LinearClassifier, self).__init__(in_channels)
+        super(LinearClassifier, self).__init__()
 
         self.in_channels = in_channels
         self.num_classes = num_classes

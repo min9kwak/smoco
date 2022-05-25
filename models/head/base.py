@@ -3,9 +3,8 @@ import torch.nn as nn
 
 
 class HeadBase(nn.Module):
-    def __init__(self, output_size: int):
+    def __init__(self):
         super(HeadBase, self).__init__()
-        assert isinstance(output_size, int)
 
     def freeze_weights(self):
         for p in self.parameters():
