@@ -7,7 +7,7 @@ import pandas as pd
 
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
-
+from sklearn.utils import class_weight
 
 class PETProcessor(object):
     def __init__(self,
@@ -33,6 +33,10 @@ class PETProcessor(object):
         train_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
                        for _, row in train_info.iterrows()]
         y_train = train_info['Conv'].values
+
+        self.class_weight = class_weight.compute_class_weight(class_weight='balanced',
+                                                              classes=np.unique(y_train),
+                                                              y=y_train)
 
         test_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
                       for _, row in test_info.iterrows()]

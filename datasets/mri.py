@@ -8,6 +8,7 @@ import nibabel as nib
 
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
+from sklearn.utils import class_weight
 
 
 class MRIProcessor(object):
@@ -32,6 +33,10 @@ class MRIProcessor(object):
 
         brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in train_files]
         y_train = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in train_files])
+
+        self.class_weight = class_weight.compute_class_weight(class_weight='balanced',
+                                                              classes=np.unique(y_train),
+                                                              y=y_train)
 
         brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in test_files]
         y_test = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in test_files])

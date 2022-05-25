@@ -137,7 +137,11 @@ def main_worker(local_rank: int, config: object):
     test_set = DATA(dataset=datasets['test'], transform=test_transform, pin_memory=config.pin_memory)
 
     # Reconfigure batch-norm layers
-    loss_function = nn.CrossEntropyLoss()
+    if config.balance:
+        class_weight = torch.tensor(data_processor.class_weight, dtype=torch.float).to(local_rank)
+        loss_function = nn.CrossEntropyLoss(weight=class_weight)
+    else:
+        loss_function = nn.CrossEntropyLoss()
 
     # Model (Task)
     model = Classification(backbone=backbone, classifier=classifier)
