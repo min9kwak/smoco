@@ -13,16 +13,13 @@ import torch.nn as nn
 from datasets.mri import MRI, MRIProcessor
 from datasets.pet import PET, PETProcessor
 
-from configs.base import ConfigBase
-from configs.vit import VitUniConfig
-from configs.densenet import DenseNetUniConfig
-from configs.resnet import ResNetUniConfig
+from configs.depr.resnet import ResNetConfig
 
-from models.vit import UnimodalViT
-from models.densenet import UnimodalDenseNet
-from models.resnet import build_unimodal_resnet
+from models.network.vit import UnimodalViT
+from models.network.densenet import UnimodalDenseNet
+from models.network.resnet import build_unimodal_resnet
 
-from tasks.unimodal import Classification
+from tasks.classification import Classification
 
 from utils.logging import get_rich_logger
 from datasets.transforms import make_transforms, compute_statistics
@@ -33,7 +30,7 @@ def main():
 
     # config = VitMRIConfig.parse_arguments()
     # config = DenseNetUniConfig.parse_arguments()
-    config = ResNetUniConfig.parse_arguments()
+    config = ResNetConfig.parse_arguments()
 
     config.task = config.data_type
 

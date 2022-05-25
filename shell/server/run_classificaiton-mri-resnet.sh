@@ -1,36 +1,38 @@
 echo "Experiments Started"
-SERVER=dgx
+SERVER=workstation
 GPUS=0
 
-DATA_TYPE=pet
+DATA_TYPE=mri
 RANDOM_STATE=2021
 
-INTENSITY=normalize
+INTENSITY=scale
 
 BATCH_SIZE=16
 EPOCHS=100
 
-INIT_FEATUERS=32
-GROWTH_RATE=16
-BLOCK_CONFIG="6,12,24,16"
+BACKBONE_TYPE=resnet
+ARCH=50
 
 
-for BLUR_STD in 0.1 0.05
+for RANDOM_STATE in 1 2 3 4 5
 do
 	for LEARNING_RATE in 0.0001
 	do
-		python ./run_uni_densenet.py \
+		python ./run_classification.py \
 		--gpus $GPUS \
 		--server $SERVER \
 		--data_type $DATA_TYPE \
 		--root /raidWorkspace/mingu/Data/ADNI \
 		--data_info labels/data_info.csv \
+		--train_size 0.9 \
+		--image_size 96 \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
 		--rotate \
 		--flip \
-		--blur \
-		--blur_std $BLUR_STD \
+		--prob 0.2 \
+		--backbone_type $BACKBONE_TYPE \
+		--arch $ARCH \
 		--epochs $EPOCHS \
 		--batch_size $BATCH_SIZE \
 		--optimizer adamw \
@@ -40,12 +42,7 @@ do
 		--cosine_cycles 1 \
 		--cosine_min_lr 0.0 \
 		--save_every 20 \
-		--enable_wandb \
-		--init_features $INIT_FEATUERS \
-		--growth_rate $GROWTH_RATE \
-		--block_config=$BLOCK_CONFIG \
-		--bn_size 4 \
-		--dropout_rate 0.0
+		--enable_wandb
 	done
 done
 echo "Finished."

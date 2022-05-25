@@ -10,27 +10,25 @@ import wandb
 import torch
 import torch.nn as nn
 
-from datasets.mri import MRI, MRIProcessor
-from datasets.pet import PET, PETProcessor
-
-from configs.depr.densenet import DenseNetConfig
-
-from models.network.vit import UnimodalViT
-from models.network.densenet import UnimodalDenseNet
-from models.network.resnet import build_unimodal_resnet
-
+from configs.classification import ClassificationConfig
 from tasks.classification import Classification
 
-from utils.logging import get_rich_logger
+from models.backbone.base import calculate_out_features
+from models.backbone.densenet import DenseNetBackbone
+from models.backbone.resnet import build_resnet_backbone
+from models.head.classifier import LinearClassifier
+
+from datasets.mri import MRI, MRIProcessor
+from datasets.pet import PET, PETProcessor
 from datasets.transforms import make_transforms, compute_statistics
+
+from utils.logging import get_rich_logger
 
 
 def main():
     """Main function for single/distributed linear classification."""
 
-    # config = VitUniConfig.parse_arguments()
-    config = DenseNetConfig.parse_arguments()
-    # config = ResNetUniConfig.parse_arguments()
+    config = ClassificationConfig.parse_arguments()
 
     config.task = config.data_type
 
@@ -43,7 +41,7 @@ def main():
     setattr(config, 'distributed', distributed)
 
     # str -> list arguments
-    if config.backbone == 'densenet':
+    if config.model_name == 'densenet':
         setattr(config, 'block_config', tuple(int(a) for a in config.block_config.split(',')))
 
     rich.print(config.__dict__)
@@ -78,36 +76,32 @@ def main_worker(local_rank: int, config: object):
     logger = get_rich_logger(logfile=logfile)
     if config.enable_wandb:
         wandb.init(
-            name=f'{config.backbone} : {config.hash}',
+            name=f'{config.model_name} : {config.hash}',
             project=f'sttr-{config.task}',
             config=config.__dict__
         )
 
     # Networks
-    if config.backbone == 'vit':
-        network = UnimodalViT(in_channels=1,
-                              img_size=(config.image_size, config.image_size, config.image_size),
-                              patch_size=(config.patch_size, config.patch_size, config.patch_size),
-                              hidden_size=config.hidden_size,
-                              mlp_dim=config.mlp_dim,
-                              num_layers=config.num_layers,
-                              num_heads=config.num_heads,
-                              pos_embed=config.pos_embed,
-                              num_classes=2,
-                              dropout_rate=config.dropout_rate)
-    elif config.backbone == 'densenet':
-        network = UnimodalDenseNet(in_channels=1,
-                                   out_channels=2,
-                                   init_features=config.init_features,
-                                   growth_rate=config.growth_rate,
-                                   block_config=config.block_config,
-                                   bn_size=config.bn_size,
-                                   dropout_rate=config.dropout_rate)
-    elif config.backbone == 'resnet':
-        network = build_unimodal_resnet(arch=config.arch,
-                                        no_max_pool=config.no_max_pool,
-                                        in_channels=1,
-                                        num_classes=2)
+    if config.model_name == 'densenet':
+        backbone = DenseNetBackbone(in_channels=1,
+                                    init_features=config.init_features,
+                                    growth_rate=config.growth_rate,
+                                    block_config=config.block_config,
+                                    bn_size=config.bn_size,
+                                    dropout_rate=config.dropout_rate,
+                                    semi=config.semi)
+        activation = True
+    elif config.model_name == 'resnet':
+        backbone = build_resnet_backbone(arch=config.arch,
+                                         no_max_pool=config.no_max_pool,
+                                         in_channels=1,
+                                         semi=config.semi)
+        activation = False
+    else:
+        raise NotImplementedError
+
+    out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
+    classifier = LinearClassifier(in_channels=out_dim, num_classes=2, activation=activation)
 
     # load data
     if config.task == 'mri':
@@ -146,7 +140,7 @@ def main_worker(local_rank: int, config: object):
     loss_function = nn.CrossEntropyLoss()
 
     # Model (Task)
-    model = Classification(network=network)
+    model = Classification(backbone=backbone, classifier=classifier)
     model.prepare(
         checkpoint_dir=config.checkpoint_dir,
         loss_function=loss_function,

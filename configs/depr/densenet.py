@@ -2,11 +2,11 @@ import argparse
 from configs.base import ConfigBase
 
 
-class DenseNetUniConfig(ConfigBase):
+class DenseNetConfig(ConfigBase):
     """Configurations for MoCo."""
 
     def __init__(self, args=None, **kwargs):
-        super(DenseNetUniConfig, self).__init__(args, **kwargs)
+        super(DenseNetConfig, self).__init__(args, **kwargs)
 
     @staticmethod
     def task_specific_parser() -> argparse.ArgumentParser:

@@ -3,34 +3,27 @@
 import os
 import sys
 import time
-import json
 import rich
 import numpy as np
 import wandb
 
 import torch
 import torch.nn as nn
-import torch.multiprocessing as mp
-import torch.distributed as dist
-import torch.nn.functional as F
 
 from datasets.mri import MRI, MRIProcessor
 
-from configs.base import ConfigBase
-from configs.vit import VitUniConfig
-from configs.densenet import DenseNetUniConfig
-from configs.resnet import ResNetUniConfig
+from configs.depr.vit import VitUniConfig
 
-from models.vit import UnimodalViT
-from models.densenet import UnimodalDenseNet
-from models.resnet import build_unimodal_resnet
+from models.network.vit import UnimodalViT
+from models.network.densenet import UnimodalDenseNet
+from models.network.resnet import build_unimodal_resnet
 
-from tasks.unimodal import Classification
+from tasks.classification import Classification
 
 from utils.logging import get_rich_logger
 from datasets.transforms import compute_statistics
-from monai.transforms import Compose, AddChannel, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom
-from torchvision.transforms import ConvertImageDtype, Normalize
+from monai.transforms import Compose, AddChannel, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip
+from torchvision.transforms import ConvertImageDtype
 
 
 def main():

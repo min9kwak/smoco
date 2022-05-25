@@ -47,6 +47,10 @@ class MRIProcessor(object):
 
 class MRI(Dataset):
 
+    # SLICE = {'xmin': 30, 'xmax': 222,
+    #          'ymin': 50, 'ymax': 242,
+    #          'zmin': 35, 'zmax': 227}
+
     SLICE = {'xmin': 30, 'xmax': 222,
              'ymin': 30, 'ymax': 222,
              'zmin': 30, 'zmax': 222}

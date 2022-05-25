@@ -6,10 +6,7 @@ import torch.nn as nn
 from torch.utils.data import DataLoader
 
 from torch.utils.data import DataLoader
-from torch.utils.tensorboard import SummaryWriter
-from torchmetrics.functional.classification import accuracy, auroc
-from torchmetrics.functional.classification.f_beta import f1_score
-
+from utils.metrics import classification_result
 
 import wandb
 from utils.logging import make_epoch_description, get_rich_pbar
@@ -17,15 +14,16 @@ from datasets.samplers import ImbalancedDatasetSampler
 from utils.optimization import get_optimizer
 from utils.optimization import get_cosine_scheduler
 
-from models.vit import UnimodalViT
-
 
 class Classification(object):
     def __init__(self,
-                 network: nn.Module,
+                 backbone: nn.Module,
+                 classifier: nn.Module,
                  ):
+
         # network
-        self.network = network
+        self.backbone = backbone
+        self.classifier = classifier
 
         # optimizer
         self.scaler = None
@@ -69,11 +67,15 @@ class Classification(object):
         if distributed:
             raise NotImplementedError
         else:
-            self.network.to(self.local_rank)
+            self.backbone.to(self.local_rank)
+            self.classifier.to(self.local_rank)
 
         # Optimization
         self.optimizer = get_optimizer(
-            params=[{'params': self.network.parameters()}],
+            params=[
+                {'params': self.backbone.parameters()},
+                {'params': self.classifier.parameters()},
+            ],
             name=optimizer,
             lr=learning_rate,
             weight_decay=weight_decay
@@ -108,9 +110,8 @@ class Classification(object):
                                   sampler=train_sampler, num_workers=self.num_workers,
                                   drop_last=True)
 
-        drop_last = True if type(self.network) == UnimodalViT else False
         test_loader = DataLoader(dataset=test_set, batch_size=self.batch_size, num_workers=self.num_workers,
-                                 drop_last=drop_last)
+                                 drop_last=False)
 
         # Logging
         logger = kwargs.get('logger', None)
@@ -120,7 +121,7 @@ class Classification(object):
         best_epoch = 0
 
         if self.enable_wandb:
-            wandb.watch(self.network, log='all', log_freq=len(train_loader))
+            wandb.watch([self.backbone, self.classifier], log='all', log_freq=len(train_loader))
 
         for epoch in range(1, epochs + 1):
 
@@ -197,7 +198,7 @@ class Classification(object):
                 with torch.cuda.amp.autocast(self.mixed_precision):
                     x = batch['x'].float().to(self.local_rank)
                     y = batch['y'].to(self.local_rank)
-                    logits = self.network(x)
+                    logits = self.classifier(self.backbone(x))
                     loss = self.loss_function(logits, y.long())
                     if self.scaler is not None:
                         self.scaler.scale(loss).backward()
@@ -224,13 +225,9 @@ class Classification(object):
         y_true = torch.cat(y_true, dim=0)
         y_pred = torch.cat(y_pred, dim=0).to(torch.float32)
 
-        acc = accuracy(preds=y_pred.softmax(1), target=y_true)
-        f1 = f1_score(preds=y_pred.softmax(1), target=y_true, average='macro', num_classes=2)
-        auroc_ = auroc(preds=y_pred.softmax(1), target=y_true, num_classes=2)
-
-        out['acc'] = acc
-        out['f1'] = f1
-        out['auroc'] = auroc_
+        clf_result = classification_result(y_true=y_true, y_pred=y_pred)
+        for k, v in clf_result.items():
+            out[k] = v
 
         return out
 
@@ -249,7 +246,7 @@ class Classification(object):
 
             x = batch['x'].float().to(self.local_rank)
             y = batch['y'].to(self.local_rank)
-            logits = self.network(x)
+            logits = self.classifier(self.backbone(x))
             loss = self.loss_function(logits, y.long())
 
             result['loss'][i] = loss.detach()
@@ -263,25 +260,25 @@ class Classification(object):
         y_true = torch.cat(y_true, dim=0)
         y_pred = torch.cat(y_pred, dim=0).to(torch.float32)
 
-        acc = accuracy(preds=y_pred.softmax(1), target=y_true)
-        f1 = f1_score(preds=y_pred.softmax(1), target=y_true, average='macro', num_classes=2)
-        auroc_ = auroc(preds=y_pred.softmax(1), target=y_true, num_classes=2)
-
-        out['acc'] = acc
-        out['f1'] = f1
-        out['auroc'] = auroc_
+        clf_result = classification_result(y_true=y_true, y_pred=y_pred)
+        for k, v in clf_result.items():
+            out[k] = v
 
         return out
 
     def _set_learning_phase(self, train=False):
         if train:
-            self.network.train()
+            self.backbone.train()
+            self.classifier.train()
         else:
-            self.network.eval()
+            self.backbone.eval()
+            self.classifier.eval()
 
     def save_checkpoint(self, path: str, **kwargs):
         ckpt = {
-            'network': self.network.state_dict(),
+            'backbone': self.backbone.state_dict(),
+            'classifier': self.classifier.state_dict(),
+            'optimizer': self.optimizer.state_dict(),
         }
         if kwargs:
             ckpt.update(kwargs)
@@ -289,7 +286,8 @@ class Classification(object):
 
     def load_model_from_checkpoint(self, path: str):
         ckpt = torch.load(path)
-        self.network.load_state_dict(ckpt['network'])
+        self.backbone.load_state_dict(ckpt['backbone'])
+        self.classifier.load_state_dict(ckpt['classifier'])
         self.optimizer.load_state_dict(ckpt['optimizer'])
 
     @staticmethod

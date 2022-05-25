@@ -78,14 +78,14 @@ class ConfigBase(object):
 
     @property
     def model_name(self) -> str:
-        raise NotImplementedError
+        return self.backbone_type
 
     @property
     def checkpoint_dir(self) -> str:
         ckpt = os.path.join(
             self.checkpoint_root,
-            self.task,          # 'scratch', 'denoising', 'pirl', 'simclr', ...
-            self.backbone,
+            self.task,          # 'mri', 'pet',
+            self.model_name,    # 'densenet', 'resnet'
             self.hash           # ...
             )
         os.makedirs(ckpt, exist_ok=True)
@@ -131,7 +131,7 @@ class ConfigBase(object):
         parser.add_argument('--flip', action='store_true')
         parser.add_argument('--zoom', action='store_true')
         parser.add_argument('--blur', action='store_true')
-        parser.add_argument('--blur_std', type=float, default=0.05)
+        parser.add_argument('--blur_std', type=float)
         parser.add_argument('--prob', type=float, default=0.2)
 
         return parser
@@ -141,6 +141,23 @@ class ConfigBase(object):
         """Returns an `argparse.ArgumentParser` instance containing model-related arguments."""
         parser = argparse.ArgumentParser("CNN Backbone", add_help=False)
         parser.add_argument('--resume', type=str, default=None, help='Path to checkpoint file to resume training from.')
+
+        # define backbone
+        parser.add_argument('--backbone_type', type=str, choices=('densenet', 'resnet', 'cnn'), required=True)
+
+        # densenet
+        parser.add_argument('--init_features', type=int, help='32')
+        parser.add_argument('--growth_rate', type=int, help='32')
+        parser.add_argument('--block_config', type=str, help='"6, 12, 24, 16"')
+        parser.add_argument('--bn_size', type=int, help='4')
+        parser.add_argument('--dropout_rate', type=float, help='0.0')
+
+        # resnet
+        parser.add_argument('--arch', type=int, help='18')
+        parser.add_argument('--no_max_pool', action='store_true', help='skip')
+
+        # cnn
+
         return parser
 
     @staticmethod
