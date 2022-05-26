@@ -63,7 +63,7 @@ class MRIProcessor(object):
         return datasets
 
 
-class MRI(Dataset):
+class MRIBase(Dataset):
 
     # SLICE = {'xmin': 30, 'xmax': 222,
     #          'ymin': 50, 'ymax': 242,
@@ -75,11 +75,9 @@ class MRI(Dataset):
 
     def __init__(self,
                  dataset: dict,
-                 transform: object = None,
                  pin_memory: bool = True,
                  **kwargs):
 
-        self.transform = transform
         self.pin_memory = pin_memory
 
         self.paths = dataset['path']
@@ -91,6 +89,29 @@ class MRI(Dataset):
 
     def __len__(self):
         return len(self.y)
+
+    def __getitem__(self, idx):
+        raise NotImplementedError
+
+    def load_image(self, path):
+        image = nib.load(path)
+        image = nib.as_closest_canonical(image)
+        image = image.get_fdata()
+        image = self.slice_image(image)
+        return image
+
+    def slice_image(self, image):
+        image = image[self.SLICE['xmin']:self.SLICE['xmax'],
+                      self.SLICE['ymin']:self.SLICE['ymax'],
+                      self.SLICE['zmin']:self.SLICE['zmax']]
+        return image
+
+
+class MRI(MRIBase):
+
+    def __init__(self, dataset, pin_memory, transform, **kwargs):
+        super().__init__(dataset, pin_memory, **kwargs)
+        self.transform = transform
 
     def __getitem__(self, idx):
         path = self.paths[idx]
@@ -105,20 +126,26 @@ class MRI(Dataset):
 
         return dict(x=img, y=y, idx=idx)
 
-    def load_image(self, path):
 
-        image = nib.load(path)
-        image = nib.as_closest_canonical(image)
-        image = image.get_fdata()
-        image = self.slice_image(image)
+class MRIMoCo(MRIBase):
 
-        return image
+    def __init__(self, dataset, pin_memory, query_transform, key_transform, **kwargs):
+        super().__init__(dataset, pin_memory, **kwargs)
+        self.query_transform = query_transform
+        self.key_transform = key_transform
 
-    def slice_image(self, image):
-        image = image[self.SLICE['xmin']:self.SLICE['xmax'],
-                      self.SLICE['ymin']:self.SLICE['ymax'],
-                      self.SLICE['zmin']:self.SLICE['zmax']]
-        return image
+    def __getitem__(self, idx):
+        path = self.paths[idx]
+        y = self.y[idx]
+        if self.pin_memory:
+            img = self.images[idx]
+        else:
+            img = self.load_image(path)
+
+        x1 = self.query_transform(img)
+        x2 = self.key_transform(img)
+
+        return dict(x1=x1, x2=x2, y=y, idx=idx)
 
 
 if __name__ == '__main__':
@@ -135,10 +162,7 @@ if __name__ == '__main__':
                              random_state=2022)
     datasets = processor.process(train_size=0.9)
 
-    s1 = time.time()
     mean_std = compute_statistics(DATA=MRI, normalize_set=datasets['train'])
-    e1 = time.time()
-    print(e1 - s1)
     train_transform, test_transform = make_transforms(image_size=96,
                                                       intensity='normalize',
                                                       mean_std=mean_std,
@@ -161,8 +185,7 @@ if __name__ == '__main__':
         plt.show()
         break
 
-    # TODO: check loading speed of MRI (mgz and pkl)
-    import glob
+    # compare loading speed
     import pickle
     import os
     DATA_DIR = "D:/data/ADNI/FS7/m127S0925L111010M615TCF/mri"
@@ -181,3 +204,23 @@ if __name__ == '__main__':
         image = pickle.load(f)
     e2 = time.time()
     print(e2 - s2)
+
+    # check MRIMoCo
+    train_set = datasets['train']
+    train_set = MRIMoCo(dataset=train_set, pin_memory=False,
+                        query_transform=train_transform, key_transform=train_transform)
+    train_loader = DataLoader(train_set, batch_size=2, shuffle=False)
+
+    for batch in train_loader:
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+        sns.heatmap(batch['x1'][0, 0, 48, :, :], cmap='binary', ax=axs[0])
+        sns.heatmap(batch['x1'][0, 0, :, 48, :], cmap='binary', ax=axs[1])
+        sns.heatmap(batch['x1'][0, 0, :, :, 48], cmap='binary', ax=axs[2])
+        plt.show()
+
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+        sns.heatmap(batch['x2'][0, 0, 48, :, :], cmap='binary', ax=axs[0])
+        sns.heatmap(batch['x2'][0, 0, :, 48, :], cmap='binary', ax=axs[1])
+        sns.heatmap(batch['x2'][0, 0, :, :, 48], cmap='binary', ax=axs[2])
+        plt.show()
+        break

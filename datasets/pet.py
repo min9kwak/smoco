@@ -64,7 +64,7 @@ class PETProcessor(object):
         return datasets
 
 
-class PET(Dataset):
+class PETBase(Dataset):
 
     SLICE = {'xmin': 30, 'xmax': 222,
              'ymin': 30, 'ymax': 222,
@@ -72,11 +72,9 @@ class PET(Dataset):
 
     def __init__(self,
                  dataset: dict,
-                 transform: object = None,
                  pin_memory: bool = True,
                  **kwargs):
 
-        self.transform = transform
         self.pin_memory = pin_memory
 
         self.paths = dataset['path']
@@ -88,6 +86,28 @@ class PET(Dataset):
 
     def __len__(self):
         return len(self.y)
+
+    def __getitem__(self, idx):
+        raise NotImplementedError
+
+    def load_image(self, path):
+        with open(path, 'rb') as f:
+            image = pickle.load(f)
+        image = self.slice_image(image)
+        return image
+
+    def slice_image(self, image):
+        image = image[self.SLICE['xmin']:self.SLICE['xmax'],
+                      self.SLICE['ymin']:self.SLICE['ymax'],
+                      self.SLICE['zmin']:self.SLICE['zmax']]
+        return image
+
+
+class PET(PETBase):
+
+    def __init__(self, dataset, pin_memory, transform, **kwargs):
+        super().__init__(dataset, pin_memory, **kwargs)
+        self.transform = transform
 
     def __getitem__(self, idx):
         path = self.paths[idx]
@@ -102,17 +122,26 @@ class PET(Dataset):
 
         return dict(x=img, y=y, idx=idx)
 
-    def load_image(self, path):
-        with open(path, 'rb') as f:
-            image = pickle.load(f)
-        image = self.slice_image(image)
-        return image
 
-    def slice_image(self, image):
-        image = image[self.SLICE['xmin']:self.SLICE['xmax'],
-                      self.SLICE['ymin']:self.SLICE['ymax'],
-                      self.SLICE['zmin']:self.SLICE['zmax']]
-        return image
+class PETMoCo(PETBase):
+
+    def __init__(self, dataset, pin_memory, query_transform, key_transform, **kwargs):
+        super().__init__(dataset, pin_memory, **kwargs)
+        self.query_transform = query_transform
+        self.key_transform = key_transform
+
+    def __getitem__(self, idx):
+        path = self.paths[idx]
+        y = self.y[idx]
+        if self.pin_memory:
+            img = self.images[idx]
+        else:
+            img = self.load_image(path)
+
+        x1 = self.query_transform(img)
+        x2 = self.key_transform(img)
+
+        return dict(x1=x1, x2=x2, y=y, idx=idx)
 
 
 if __name__ == '__main__':
