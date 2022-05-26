@@ -104,10 +104,10 @@ def main_worker(local_rank: int, config: object):
     classifier = LinearClassifier(in_channels=out_dim, num_classes=2, activation=activation)
 
     # load data
-    if config.task == 'mri':
+    if config.data_type == 'mri':
         PROCESSOR = MRIProcessor
         DATA = MRI
-    elif config.task == 'pet':
+    elif config.data_type == 'pet':
         PROCESSOR = PETProcessor
         DATA = PET
     else:
