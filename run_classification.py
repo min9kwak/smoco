@@ -133,8 +133,8 @@ def main_worker(local_rank: int, config: object):
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 
-    train_set = DATA(dataset=datasets['train'], transform=train_transform, pin_memory=config.pin_memory)
-    test_set = DATA(dataset=datasets['test'], transform=test_transform, pin_memory=config.pin_memory)
+    train_set = DATA(dataset=datasets['train'], pin_memory=config.pin_memory, transform=train_transform)
+    test_set = DATA(dataset=datasets['test'], pin_memory=config.pin_memory, transform=test_transform)
 
     # Reconfigure batch-norm layers
     if config.balance:
