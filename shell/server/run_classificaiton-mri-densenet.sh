@@ -11,7 +11,7 @@ BATCH_SIZE=16
 EPOCHS=100
 
 BACKBONE_TYPE=densenet
-INIT_FEATUERS=32
+INIT_FEATURES=32
 GROWTH_RATE=32
 BLOCK_CONFIG="6,12,24,16"
 
@@ -34,7 +34,7 @@ do
 		--flip \
 		--prob 0.2 \
 		--backbone_type $BACKBONE_TYPE \
-		--init_features $INIT_FEATUERS \
+		--init_features $INIT_FEATURES \
 		--growth_rate $GROWTH_RATE \
 		--block_config=$BLOCK_CONFIG \
 		--bn_size 4 \
