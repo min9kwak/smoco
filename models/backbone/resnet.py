@@ -89,7 +89,7 @@ class ResNetBackbone(BackboneBase):
                  block: Type[Union[ResNetBlock, ResNetBottleneck]],
                  layers: List[int],
                  block_inplanes: List[int],
-                 in_channels: int = 3,
+                 in_channels: int = 1,
                  no_max_pool: bool = False,
                  semi: bool = False,
                  ) -> None:
