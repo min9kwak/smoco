@@ -10,7 +10,6 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from torch.utils.data import DistributedSampler
 from torch.nn.parallel import DistributedDataParallel
-from torch.utils.tensorboard import SummaryWriter
 
 from utils.distributed import ForMoCo
 from utils.distributed import concat_all_gather
@@ -18,7 +17,9 @@ from utils.metrics import TopKAccuracy
 from utils.knn import KNNEvaluator
 from utils.optimization import get_optimizer
 from utils.optimization import get_cosine_scheduler
-from utils.logging import get_rich_pbar
+from utils.logging import get_rich_pbar, make_epoch_description
+
+import wandb
 
 
 class MoCoLoss(nn.Module):
@@ -101,9 +102,9 @@ class MemoryQueue(nn.Module):
         self.num_updates += 1
 
 
-class MoCo(Task):
+class MoCo(object):
     def __init__(self,
-                 encoder: nn.Module,
+                 backbone: nn.Module,
                  head: nn.Module,
                  queue: MemoryQueue,
                  loss_function: nn.Module,
@@ -113,7 +114,7 @@ class MoCo(Task):
         # Initialize networks
         self.queue = queue
         self.net_q = nn.Sequential()
-        self.net_q.add_module('encoder', encoder)
+        self.net_q.add_module('backbone', backbone)
         self.net_q.add_module('head', head)
         self.net_k = copy.deepcopy(self.net_q)
         self._freeze_key_net_params()
@@ -128,49 +129,43 @@ class MoCo(Task):
         self.prepared = False
 
     def prepare(self,
-                ckpt_dir: str,
+                checkpoint_dir: str,
                 optimizer: str,
                 learning_rate: float = 0.01,
                 weight_decay: float = 1e-4,
                 cosine_warmup: int = 0,
                 cosine_cycles: int = 1,
-                cosine_min_lr: float = 5e-3,
+                cosine_min_lr: float = 0.0,
                 epochs: int = 1000,
-                batch_size: int = 256,
-                num_workers: int = 0,
+                batch_size: int = 16,
+                num_workers: int = 4,
                 key_momentum: float = 0.999,
                 distributed: bool = False,
                 local_rank: int = 0,
-                mixed_precision: bool = True,
+                mixed_precision: bool = False,
+                enable_wandb: bool = True,
                 resume: str = None):
         """Prepare MoCo pre-training."""
 
         # Set attributes
-        self.ckpt_dir = ckpt_dir  # pylint: disable=attribute-defined-outside-init
-        self.epochs = epochs  # pylint: disable=attribute-defined-outside-init
-        self.batch_size = batch_size  # pylint: disable=attribute-defined-outside-init
-        self.num_workers = num_workers  # pylint: disable=attribute-defined-outside-init
-        self.key_momentum = key_momentum  # pylint: disable=attribute-defined-outside-init
-        self.distributed = distributed  # pylint: disable=attribute-defined-outside-init
-        self.local_rank = local_rank  # pylint: disable=attribute-defined-outside-init
-        self.mixed_precision = mixed_precision  # pylint: disable=attribute-defined-outside-init
-        self.resume = resume  # pylint: disable=attribute-defined-outside-init
+        self.checkpoint_dir = checkpoint_dir
+        self.epochs = epochs
+        self.batch_size = batch_size
+        self.num_workers = num_workers
+        self.key_momentum = key_momentum
+        self.distributed = distributed
+        self.local_rank = local_rank
+        self.mixed_precision = mixed_precision
+        self.enable_wandb = enable_wandb
+        self.resume = resume
 
-        """
-        Initialize optimizer & LR scheduler.
-            1. If training from scratch, optimizer states will be automatically
-                created on the device of its parameters. No worries.
-            2. If training from a model checkpoint, however, optimizer states must be
-                configured manually using the current `local_rank`. A common approach is:
-                    a) Load all model checkpoints on 'cpu'; `torch.load(ckpt, map_location='cpu')`.
-                    b) Manually move all optimizer states to the appropriate device.
-        """  # pylint: disable=pointless-string-statement
         self.optimizer = get_optimizer(
             params=self.net_q.parameters(),
             name=optimizer,
             lr=learning_rate,
             weight_decay=weight_decay
         )
+
         # Learning rate scheduling; if cosine_warmup < 0: scheduler = None.
         self.scheduler = get_cosine_scheduler(
             self.optimizer,
@@ -201,9 +196,6 @@ class MoCo(Task):
         # Mixed precision training (optional, enabled by default.)
         self.scaler = torch.cuda.amp.GradScaler() if mixed_precision else None
 
-        # TensorBoard
-        self.writer = SummaryWriter(ckpt_dir) if local_rank == 0 else None
-
         # Ready to train!
         self.prepared = True
 
@@ -211,7 +203,7 @@ class MoCo(Task):
             dataset: torch.utils.data.Dataset,
             memory_set: torch.utils.data.Dataset = None,
             query_set: torch.utils.data.Dataset = None,
-            save_every: int = 100,
+            save_every: int = 50,
             **kwargs):
 
         if not self.prepared:
@@ -220,7 +212,7 @@ class MoCo(Task):
         # DataLoader (for self-supervised pre-training)
         sampler = DistributedSampler(dataset) if self.distributed else None
         shuffle = not self.distributed
-        data_loader = DataLoader(
+        train_loader = DataLoader(
             dataset,
             batch_size=self.batch_size,
             sampler=sampler,
@@ -230,18 +222,15 @@ class MoCo(Task):
             pin_memory=True
         )
 
-        # DataLoader (for supervised evaluation)
-        if (memory_set is not None) and (query_set is not None):
-            memory_loader = DataLoader(memory_set, batch_size=self.batch_size * 2, num_workers=self.num_workers)
-            query_loader = DataLoader(query_set, batch_size=self.batch_size * 2)
-            knn_eval = True
-        else:
-            query_loader = None
-            memory_loader = None
-            knn_eval = False
+        # DataLoader (for supervised evaluation): memory_loader -> validation set & query_loader -> test set
+        memory_loader = DataLoader(memory_set, batch_size=self.batch_size, num_workers=self.num_workers)
+        query_loader = DataLoader(query_set, batch_size=self.batch_size, num_workers=self.num_workers)
 
         # Logging
         logger = kwargs.get('logger', None)
+
+        if self.enable_wandb:
+            wandb.watch([self.net_k], log='all', log_freq=len(train_loader))
 
         for epoch in range(1, self.epochs + 1):
 
@@ -249,18 +238,18 @@ class MoCo(Task):
                 sampler.set_epoch(epoch)
 
             # Train
-            history = self.train(data_loader)
+            history = self.train(train_loader)
             log = " | ".join([f"{k} : {v:.4f}" for k, v in history.items()])
 
             # Evaluate
-            if (self.local_rank == 0) and knn_eval:
-                knn_k = kwargs.get('knn_k', [5, 200])
-                knn = KNNEvaluator(knn_k, num_classes=query_loader.dataset.num_classes)
+            if self.local_rank == 0:
+                knn_k = kwargs.get('knn_k', [1, 5, 15])
+                knn = KNNEvaluator(knn_k, num_classes=2)
                 knn_scores = knn.evaluate(self.net_q,
                                           memory_loader=memory_loader,
                                           query_loader=query_loader)
                 for k, score in knn_scores.items():
-                    log += f" | knn@{k}: {score * 100:.2f}%"
+                    log += f" | {k}: {score * 100:.2f}%"
             else:
                 knn_scores = None
 
@@ -269,18 +258,15 @@ class MoCo(Task):
                 logger.info(f"Epoch [{epoch:>4}/{self.epochs:>4}] - " + log)
 
             # TensorBoard
-            if self.writer is not None:
-                for k, v in history.items():
-                    self.writer.add_scalar(k, v, global_step=epoch)
-                if knn_scores is not None:
-                    for k, score in knn_scores.items():
-                        self.writer.add_scalar(f'knn@{k}', score, global_step=epoch)
+            if self.enable_wandb:
+                wandb.log({'epoch': epoch}, commit=False)
                 if self.scheduler is not None:
-                    lr = self.scheduler.get_last_lr()[0]
-                    self.writer.add_scalar('lr', lr, global_step=epoch)
+                    wandb.log({'lr': self.scheduler.get_last_lr()[0]}, commit=False)
+                if knn_scores is not None:
+                    wandb.log(knn_scores)
 
             if (epoch % save_every == 0) & (self.local_rank == 0):
-                ckpt = os.path.join(self.ckpt_dir, f"ckpt.{epoch}.pth.tar")
+                ckpt = os.path.join(self.checkpoint_dir, f"ckpt.{epoch}.pth.tar")
                 self.save_checkpoint(ckpt, epoch=epoch, history=history)
 
             if self.scheduler is not None:
@@ -288,7 +274,7 @@ class MoCo(Task):
 
         # save last
         if self.local_rank == 0:
-            ckpt = os.path.join(self.ckpt_dir, f"ckpt.last.pth.tar")
+            ckpt = os.path.join(self.checkpoint_dir, f"ckpt.last.pth.tar")
             self.save_checkpoint(ckpt, epoch=epoch, history=history)
 
     def train(self, data_loader: torch.utils.data.DataLoader):
@@ -388,14 +374,14 @@ class MoCo(Task):
         """Save model to a `.tar' checkpoint file."""
 
         if self.distributed:
-            encoder = self.net_q.module.encoder
+            backbone = self.net_q.module.backbone
             head = self.net_q.module.head
         else:
-            encoder = self.net_q.encoder
+            backbone = self.net_q.backbone
             head = self.net_q.head
 
         ckpt = {
-            'encoder': encoder.state_dict(),
+            'backbone': backbone.state_dict(),
             'head': head.state_dict(),
             'net_k': self.net_k.state_dict(),
             'queue': self.queue.state_dict(),
@@ -412,7 +398,7 @@ class MoCo(Task):
         If resuming training, ensure that all modules have been properly initialized.
         """
         ckpt = torch.load(path, map_location='cpu')
-        self.net_q.encoder.load_state_dict(ckpt['encoder'])
+        self.net_q.backbone.load_state_dict(ckpt['backbone'])
         self.net_q.head.load_state_dict(ckpt['head'])
         self.net_k.load_state_dict(ckpt['net_k'])
         self.queue.load_state_dict(ckpt['queue'])

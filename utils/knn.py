@@ -75,7 +75,7 @@ class KNNEvaluator(object):
                 pg.update(task_2, advance=1.) 
             
             for i, k in enumerate(self.num_neighbors):
-                scores[k] = corrects[i] / len(query_loader.dataset)
+                scores[f'knn@{k}'] = corrects[i] / len(query_loader.dataset)
 
             return scores  # dict
 
