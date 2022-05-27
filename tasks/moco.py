@@ -260,6 +260,7 @@ class MoCo(object):
             # TensorBoard
             if self.enable_wandb:
                 wandb.log({'epoch': epoch}, commit=False)
+                wandb.log(history, commit=False)
                 if self.scheduler is not None:
                     wandb.log({'lr': self.scheduler.get_last_lr()[0]}, commit=False)
                 if knn_scores is not None:
