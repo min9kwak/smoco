@@ -7,7 +7,6 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from torch.utils.data import DataLoader
-from torchmetrics.functional import accuracy, f1
 from utils.metrics import classification_result
 
 from torch.optim.swa_utils import AveragedModel, SWALR

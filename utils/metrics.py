@@ -6,7 +6,6 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torchmetrics.functional.classification import accuracy, auroc
-from torchmetrics.functional.classification.f_beta import f1_score
 from torchmetrics.functional import precision, recall, confusion_matrix
 
 
