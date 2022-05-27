@@ -36,7 +36,7 @@ do
 		--flip \
 		--prob 0.2 \
 		--backbone_type $BACKBONE_TYPE \
-    --init_features $INIT_FEATURES \
+		--init_features $INIT_FEATURES \
 		--growth_rate $GROWTH_RATE \
 		--block_config=$BLOCK_CONFIG \
 		--bn_size 4 \
