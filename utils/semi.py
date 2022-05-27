@@ -17,7 +17,6 @@ class SemiBatchNorm3d(nn.BatchNorm3d):
 
 def update_batch_stats(module, flag):
     for name, child in module.named_children():
-        print(name)
         if isinstance(child, nn.BatchNorm3d):
             child.update_batch_stats = flag
     for n, ch in module.named_children():
