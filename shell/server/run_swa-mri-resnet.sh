@@ -48,7 +48,7 @@ do
 		--save_every 20 \
 		--enable_wandb \
 		--semi \
-		--blalance \
+		--balance \
 		--swa_learning_rate $SWA_LEARNING_RATE \
 		--swa_start 0 \
 		--mu 1 \
