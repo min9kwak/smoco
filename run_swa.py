@@ -11,7 +11,8 @@ import torch
 import torch.nn as nn
 
 from configs.classification import SWAConfig
-from tasks.swa import SWA, PiLoss
+from tasks.swa import SWA
+from utils.semi import PiLoss, PseduoLabelLoss
 
 from models.backbone.base import calculate_out_features
 from models.backbone.densenet import DenseNetBackbone
@@ -141,16 +142,21 @@ def main_worker(local_rank: int, config: object):
     test_set = DATA(dataset=datasets['test'], pin_memory=config.pin_memory,
                     query_transform=test_transform, key_transform=test_transform)
 
-    # Reconfigure batch-norm layers
+    # loss function
     if config.balance:
         class_weight = torch.tensor(data_processor.class_weight, dtype=torch.float).to(local_rank)
         l_loss_function = nn.CrossEntropyLoss(weight=class_weight, reduction='none', ignore_index=-1)
     else:
         l_loss_function = nn.CrossEntropyLoss(reduction='none', ignore_index=-1)
 
+    if config.semi_loss == 'pi':
+        u_loss_function = PiLoss()
+    elif config.semi_loss == 'pseudo':
+        u_loss_function = PseduoLabelLoss(threshold=config.pseudo_threshold, num_classes=2)
+
     # Model (Task)
     model = SWA(backbone=backbone, classifier=classifier,
-                l_loss_function=l_loss_function, u_loss_function=PiLoss())
+                l_loss_function=l_loss_function, u_loss_function=u_loss_function)
     model.prepare(
         checkpoint_dir=config.checkpoint_dir,
         optimizer=config.optimizer,

@@ -25,6 +25,8 @@ class SWAConfig(ConfigBase):
     def task_specific_parser() -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser('Classification', add_help=False)
         parser.add_argument('--semi', action='store_true')
+        parser.add_argument('--semi_loss', type=str, choices=('pi', 'pseudo'))
+        parser.add_argument('--pseudo_threshold', type=float)
         parser.add_argument('--balance', action='store_true', help='apply class balance weight')
         parser.add_argument('--swa_learning_rate', type=float, default=1e-4)
         parser.add_argument('--swa_start', type=int, default=0)

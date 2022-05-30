@@ -5,7 +5,6 @@ import collections
 
 import torch
 import torch.nn as nn
-import torch.nn.functional as F
 from torch.utils.data import DataLoader
 from utils.metrics import classification_result
 
@@ -16,23 +15,8 @@ from datasets.samplers import ImbalancedDatasetSampler
 from utils.optimization import get_optimizer
 from utils.optimization import get_cosine_scheduler
 from utils.logging import get_rich_pbar
-from utils.semi import update_batch_stats
 
 import wandb
-
-
-class PiLoss(nn.Module):
-    def __init__(self):
-        super(PiLoss, self).__init__()
-
-    def forward(self,
-                y: torch.FloatTensor,
-                y_pred: torch.FloatTensor,
-                mask: torch.BoolTensor):
-        loss = F.mse_loss(y_pred.softmax(1), y.softmax(1).detach(), reduction="none").mean(1)
-        loss = loss * mask
-        loss = loss.mean()
-        return loss
 
 
 class SWA(object):
@@ -259,18 +243,16 @@ class SWA(object):
                     l_y = l_batch['y'].to(self.local_rank).long()
                     u_y = u_batch['y'].to(self.local_rank).long()
 
-                    # pi model
+                    # ssl loss
                     y = torch.cat([l_y, u_y], dim=0)
                     mask = (y == -1).float()
 
                     y_pred_1 = self.classifier(self.backbone(torch.cat([l_x1, u_x1], dim=0)))
-                    update_batch_stats(self.backbone, False)
-                    y_pred_2 = self.classifier(self.backbone(torch.cat([l_x2, u_x2], dim=0)))
-                    update_batch_stats(self.backbone, True)
 
                     # calculate loss
                     l_loss = self.l_loss_function(y_pred_1, y).mean()
-                    u_loss = self.u_loss_function(y_pred_1.detach(), y_pred_2, mask)
+                    u_loss = self.u_loss_function(torch.cat([l_x2, u_x2], dim=0), y_pred_1,
+                                                  self.backbone, self.classifier, mask)
 
                     # calculate coefficient ramp_up
                     if self.epoch < self.ramp_up:
