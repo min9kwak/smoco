@@ -1,12 +1,12 @@
-# TODO: check loading speed of MRI (mgz and pkl)
-import pickle
 import os
+import pickle
+import time
 import nibabel as nib
 
+'''
 DATA_DIR = "/raidWorkspace/mingu/Data/ADNI/FS7/m127S0925L111010M615TCF/mri"
 image_file = os.path.join(DATA_DIR, 'brain.mgz')
 
-import time
 
 s1 = time.time()
 image = nib.load(image_file)
@@ -20,9 +20,9 @@ with open(image_file.replace('.mgz', '.pkl'), 'rb') as f:
     image = pickle.load(f)
 e2 = time.time()
 print('mri loading pkl', e2 - s2)
+'''
 
-
-nii_file = "/raidWorkspace/mingu/Data/ADNI/PUP_FBP\FFBP002S0729L073010M4/pet_proc/FBP002S0729L073010M4_SUVR.nii"
+nii_file = "/raidWorkspace/mingu/Data/ADNI/PUP_FBP\FFBP002S0729L073010M4/pet_proc/FBP002S0729L073010M4_SUVR.nii.gz"
 pkl_file = "/raidWorkspace/mingu/Data/ADNI/PUP_FBP\FFBP002S0729L073010M4/pet_proc/FBP002S0729L073010M4_SUVR.pkl"
 mask_file = "/raidWorkspace/mingu/Data/ADNI/FS7/m002S0729L072210M715TCF/mri/brainmask.mgz"
 
@@ -40,3 +40,4 @@ with open(pkl_file, 'rb') as f:
     image = pickle.load(f)
 e2 = time.time()
 print('pet loading pkl', e2 - s2)
+
