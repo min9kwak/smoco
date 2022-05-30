@@ -1,6 +1,7 @@
 import os
 import pickle
 
+import numpy as np
 import torch
 import nibabel as nib
 import pandas as pd
@@ -8,6 +9,7 @@ import pandas as pd
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
+
 
 class PETProcessor(object):
     def __init__(self,
@@ -146,7 +148,6 @@ class PETMoCo(PETBase):
 
 if __name__ == '__main__':
 
-    import numpy as np
     for random_state in [2021, 2022, 2023, 2024, 2025]:
         processor = PETProcessor(root='D:/data/ADNI',
                                  data_info='labels/data_info.csv',
