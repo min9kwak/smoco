@@ -132,7 +132,7 @@ class ConfigBase(object):
         parser.add_argument('--zoom', action='store_true')
         parser.add_argument('--blur', action='store_true')
         parser.add_argument('--blur_std', type=float)
-        parser.add_argument('--prob', type=float, default=0.2)
+        parser.add_argument('--prob', type=float, default=0.5)
 
         return parser
 

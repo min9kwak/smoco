@@ -1,5 +1,5 @@
 echo "Experiments Started"
-SERVER=workstation
+SERVER=dgx
 GPUS=0
 
 DATA_TYPE=mri
@@ -16,11 +16,11 @@ GROWTH_RATE=32
 BLOCK_CONFIG="6,12,24,16"
 
 PROJECTOR_DIM=128
-NUM_NEGATIVES=512
+NUM_NEGATIVES=1024
 
-for EPOCHS in 100 200
+for EPOCHS in 100
 do
-	for LEARNING_RATE in 0.01 0.03
+	for LEARNING_RATE in 0.01
 	do
 		python ./run_moco.py \
 		--gpus $GPUS \
@@ -34,7 +34,8 @@ do
 		--intensity $INTENSITY \
 		--rotate \
 		--flip \
-		--prob 0.2 \
+		--blur \
+		--blur_std 0.1 \
 		--backbone_type $BACKBONE_TYPE \
 		--init_features $INIT_FEATURES \
 		--growth_rate $GROWTH_RATE \

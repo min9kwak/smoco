@@ -1,5 +1,5 @@
 echo "Experiments Started"
-SERVER=workstation
+SERVER=dgx
 GPUS=0
 
 DATA_TYPE=mri
@@ -14,11 +14,11 @@ BACKBONE_TYPE=resnet
 ARCH=50
 
 PROJECTOR_DIM=128
-NUM_NEGATIVES=512
+NUM_NEGATIVES=1024
 
-for EPOCHS in 100
+for RANDOM_STATE in 2021 2022 2023 2024 205
 do
-	for LEARNING_RATE in 0.01 0.03
+	for LEARNING_RATE in 0.01
 	do
 		python ./run_moco.py \
 		--gpus $GPUS \
@@ -32,7 +32,8 @@ do
 		--intensity $INTENSITY \
 		--rotate \
 		--flip \
-		--prob 0.2 \
+		--blur \
+		--blur_std 0.1 \
 		--backbone_type $BACKBONE_TYPE \
 		--arch $ARCH \
 		--epochs $EPOCHS \
