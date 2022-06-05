@@ -15,6 +15,7 @@ ARCH=50
 
 PROJECTOR_DIM=128
 NUM_NEGATIVES=1024
+KEY_MOMENTUM=0.995
 
 for RANDOM_STATE in 2021 2022 2023 2024 205
 do
@@ -26,6 +27,7 @@ do
 		--data_type $DATA_TYPE \
 		--root /raidWorkspace/mingu/Data/ADNI \
 		--data_info labels/data_info.csv \
+		--mci_only \
 		--train_size 0.9 \
 		--image_size 96 \
 		--random_state $RANDOM_STATE \
@@ -48,6 +50,7 @@ do
 		--enable_wandb \
 		--projector_dim $PROJECTOR_DIM \
 		--num_negatives $NUM_NEGATIVES \
+		--key_momentum $KEY_MOMENTUM \
 		--split_bn
 	done
 done
