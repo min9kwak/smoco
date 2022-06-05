@@ -51,6 +51,7 @@ print('not found after dropped missing RID - ', summary.RID.isna().sum())
 
 # convert VISCODE2 to MONTH
 summary['MONTH'] = summary.VISCODE2.apply(viscode2month)
+mri_demo['MONTH'] = mri_demo.VISCODE2.apply(viscode2month)
 mri_labels['MONTH'] = mri_labels.VISCODE2.apply(viscode2month)
 
 # co-register PET
@@ -92,7 +93,7 @@ summary['wmparc'] = summary['MRI'].apply(lambda x: 1 if x in wmparc_files else 0
 # drop columns with out RID and VISCODE2
 def get_converter_status(features, time_window=36):
     rid_all = features['RID'].unique()
-    features.sort_values(by=['RID', 'MONTH'])
+    features = features.sort_values(by=['RID', 'MONTH'])
     rid_mci = []
     month_mci = []
     det_t = []
@@ -181,6 +182,18 @@ summary = pd.merge(summary, mci, how='left', on=['RID', 'MONTH'])
 summary = summary.drop_duplicates(subset=['RID', 'MONTH'])
 
 summary['Conv'] = summary['Conv'].fillna(-1).apply(int)
+
+# DX & MCI-related
+summary = pd.merge(summary, mri_labels[['RID', 'MONTH', 'DX']], how='left', on=['RID', 'MONTH'])
+summary['MCI'] = summary['DX'].apply(lambda x: 1 if x in [2, 4, 6] else 0)
+for i, row in summary.iterrows():
+    if row.Conv != -1:
+        summary.loc[i, 'MCI'] = 1
+
+# TODO: add clinical/demographic features
+demo_feature_names = ['']
+summary = pd.merge(summary, mri_demo[['RID', 'MONTH'] + demo_feature_names],
+                   how='left', on=['RID', 'MONTH'])
 
 summary.to_csv(os.path.join(DATA_DIR, "labels/data_info.csv"), index=False)
 

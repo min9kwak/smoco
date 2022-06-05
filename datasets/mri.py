@@ -15,10 +15,13 @@ class MRIProcessor(object):
     def __init__(self,
                  root: str,
                  data_info: str,
+                 mci_only: bool = False,
                  random_state: int = 2022):
 
         self.root = root
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'MONTH': int, 'Conv': int})
+        if mci_only:
+            self.data_info = self.data_info.loc[self.data_info.MIC == 1]
 
         # unlabeled and labeled
         self.u_data_info = self.data_info[self.data_info['Conv'].isin([-1])]

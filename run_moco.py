@@ -137,6 +137,7 @@ def main_worker(local_rank: int, config: object):
 
     data_processor = PROCESSOR(root=config.root,
                                data_info=config.data_info,
+                               mci_only=config.mci_only,
                                random_state=config.random_state)
     datasets = data_processor.process(train_size=config.train_size)
 
