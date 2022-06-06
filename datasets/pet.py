@@ -98,7 +98,7 @@ class PETBase(Dataset):
     def load_image(self, path):
         with open(path, 'rb') as f:
             image = pickle.load(f)
-        image = self.slice_image(image)
+        # image = self.slice_image(image)
         return image
 
     def slice_image(self, image):

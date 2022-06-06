@@ -100,7 +100,7 @@ class MRIBase(Dataset):
         image = nib.load(path)
         image = nib.as_closest_canonical(image)
         image = image.get_fdata()
-        image = self.slice_image(image)
+        # image = self.slice_image(image)
         return image
 
     def slice_image(self, image):
