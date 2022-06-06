@@ -3,6 +3,7 @@ SERVER=dgx
 GPUS=0
 
 DATA_TYPE=mri
+IMAGE_SIZE=128
 RANDOM_STATE=2021
 
 INTENSITY=scale
@@ -29,7 +30,7 @@ do
 		--data_info labels/data_info.csv \
 		--mci_only \
 		--train_size 0.9 \
-		--image_size 96 \
+		--image_size $IMAGE_SIZE \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
 		--rotate \
