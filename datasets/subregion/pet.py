@@ -11,11 +11,13 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 
 
-class PETProcessor(object):
+class SubPETProcessor(object):
+
     def __init__(self,
                  root: str,
                  data_info: str,
                  mci_only: bool = False,
+                 segment: str = 'left_hippocampus',
                  random_state: int = 2022):
 
         self.root = root
@@ -23,6 +25,8 @@ class PETProcessor(object):
         self.data_info = self.data_info[~self.data_info.PET.isna()]
         if mci_only:
             self.data_info = self.data_info.loc[self.data_info.MCI == 1]
+        assert segment in ['left_hippocampus', 'right_hippocampus', 'hippocampus']
+        self.segment = segment
 
         # unlabeled and labeled
         self.u_data_info = self.data_info[self.data_info['Conv'].isin([-1])]
@@ -42,7 +46,7 @@ class PETProcessor(object):
         train_info = self.data_info[self.data_info['RID'].isin(train_rids)]
         test_info = self.data_info[self.data_info['RID'].isin(test_rids)]
 
-        train_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
+        train_files = [os.path.join(self.root, f'segment/PUP_FBP/{self.segment}', f'{row.PET}.pkl')
                        for _, row in train_info.iterrows()]
         y_train = train_info['Conv'].values
 
@@ -50,11 +54,11 @@ class PETProcessor(object):
                                                               classes=np.unique(y_train),
                                                               y=y_train)
 
-        test_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
+        test_files = [os.path.join(self.root, f'segment/PUP_FBP/{self.segment}', f'{row.PET}.pkl')
                       for _, row in test_info.iterrows()]
         y_test = test_info['Conv'].values
 
-        u_train_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
+        u_train_files = [os.path.join(self.root, f'segment/PUP_FBP/{self.segment}', f'{row.PET}.pkl')
                          for _, row in self.u_data_info.iterrows()]
         u_y_train = self.u_data_info['Conv'].values
 
@@ -65,11 +69,7 @@ class PETProcessor(object):
         return datasets
 
 
-class PETBase(Dataset):
-
-    SLICE = {'xmin': 30, 'xmax': 222,
-             'ymin': 30, 'ymax': 222,
-             'zmin': 30, 'zmax': 222}
+class SubPETBase(Dataset):
 
     def __init__(self,
                  dataset: dict,
@@ -94,17 +94,10 @@ class PETBase(Dataset):
     def load_image(self, path):
         with open(path, 'rb') as f:
             image = pickle.load(f)
-        # image = self.slice_image(image)
-        return image
-
-    def slice_image(self, image):
-        image = image[self.SLICE['xmin']:self.SLICE['xmax'],
-                      self.SLICE['ymin']:self.SLICE['ymax'],
-                      self.SLICE['zmin']:self.SLICE['zmax']]
         return image
 
 
-class PET(PETBase):
+class SubPET(SubPETBase):
 
     def __init__(self, dataset, pin_memory, transform, **kwargs):
         super().__init__(dataset, pin_memory, **kwargs)
@@ -124,7 +117,7 @@ class PET(PETBase):
         return dict(x=img, y=y, idx=idx)
 
 
-class PETMoCo(PETBase):
+class SubPETMoCo(SubPETBase):
 
     def __init__(self, dataset, pin_memory, query_transform, key_transform, **kwargs):
         super().__init__(dataset, pin_memory, **kwargs)
@@ -147,15 +140,28 @@ class PETMoCo(PETBase):
 
 if __name__ == '__main__':
 
-    for random_state in [2021, 2022, 2023, 2024, 2025]:
-        processor = PETProcessor(root='D:/data/ADNI',
-                                 data_info='labels/data_info.csv',
-                                 random_state=random_state)
-        datasets = processor.process(train_size=0.9)
+    processor = SubPETProcessor(root='D:/data/ADNI',
+                                data_info='labels/data_info.csv',
+                                mci_only=False,
+                                segment='hippocampus',
+                                random_state=2022)
+    datasets = processor.process(train_size=0.9)
 
-        datasets['u_train']
-        test_set = datasets['test']
+    from torch.utils.data import Dataset, DataLoader
+    train_set = SubPET(dataset=datasets['train'], pin_memory=False, transform=None)
+    train_loader = DataLoader(train_set)
 
-        print(np.bincount(test_set['y']))
-    bins = np.bincount(processor.data_info['Conv'].values)
-    bins[0]/np.sum(bins)
+    for batch in train_loader:
+        image = batch['x']
+        image = image.squeeze().numpy()
+
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        fig, axs = plt.subplots(1, 3, figsize=(24, 8))
+        sns.heatmap(image[48, :, :], cmap='binary', ax=axs[0], vmax=2)
+        sns.heatmap(image[:, 48, :], cmap='binary', ax=axs[1], vmax=2)
+        sns.heatmap(image[:, :, 48], cmap='binary', ax=axs[2], vmax=2)
+        plt.tight_layout()
+        plt.show()
+        break

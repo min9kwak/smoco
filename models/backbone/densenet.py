@@ -63,6 +63,11 @@ class DenseNetBackbone(BackboneBase):
         x = self.features(x)
         return x
 
+    def _fix_first_conv(self):
+        conv0 = self.features.conv0
+        self.features.conv0 = nn.Conv3d(conv0.in_channels, conv0.out_channels,
+                                        kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)
+
 
 class _DenseLayer(nn.Module):
     def __init__(self,
@@ -142,6 +147,13 @@ if __name__ == '__main__':
                                dropout_rate=0.0,
                                semi=True)
     x = torch.randn(size=(3, 1, 96, 96, 96))
+
+    with torch.no_grad():
+        features = network(x)
+        print(features.shape)
+
+    network._fix_first_conv_kernel_size()
+    x = torch.randn(size=(3, 1, 32, 32, 32))
 
     with torch.no_grad():
         features = network(x)

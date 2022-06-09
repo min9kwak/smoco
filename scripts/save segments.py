@@ -13,8 +13,8 @@ data_info = 'labels/data_info.csv'
 segment2class = {'left_hippocampus': [17],
                  'right_hippocampus': [53],
                  'hippocampus': [17, 53]}
-LENGTH = {'left_hippocampus': [36, 64, 64],
-          'right_hippocampus': [64, 96, 64],
+LENGTH = {'left_hippocampus': [64, 64, 64],
+          'right_hippocampus': [96, 96, 96],
           'hippocampus': [96, 96, 96]}
 
 

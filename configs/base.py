@@ -123,7 +123,10 @@ class ConfigBase(object):
         parser.add_argument('--data_info', type=str, default='labels/data_info.csv')
         parser.add_argument('--mci_only', action='store_true')
         parser.add_argument('--train_size', type=float, default=0.9)
-        parser.add_argument('--image_size', type=int, default=128)
+        parser.add_argument('--segment', type=str, default=None)
+        parser.add_argument('--image_size', type=int, default=None,
+                            help='global=256, left=64, right=96, hippo=96')
+        parser.add_argument('--small_kernel', action='store_true')
         parser.add_argument('--pin_memory', action='store_true')
         parser.add_argument('--random_state', type=int, default=2022)
 

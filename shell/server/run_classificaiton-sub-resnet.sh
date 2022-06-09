@@ -1,9 +1,10 @@
 echo "Experiments Started"
-SERVER=workstation
+SERVER=dgx
 GPUS=0
 
-DATA_TYPE=mri
-IMAGE_SIZE=128
+DATA_TYPE=pet
+SEGMENT=left_hippocampus
+IMAGE_SIZE=32
 RANDOM_STATE=2021
 
 INTENSITY=scale
@@ -15,7 +16,7 @@ BACKBONE_TYPE=resnet
 ARCH=50
 
 
-for RANDOM_STATE in 1 2 3 4 5
+for RANDOM_STATE in 2021 2022 2023 2024
 do
 	for LEARNING_RATE in 0.0001
 	do
@@ -25,13 +26,18 @@ do
 		--data_type $DATA_TYPE \
 		--root /raidWorkspace/mingu/Data/ADNI \
 		--data_info labels/data_info.csv \
+		--mci_only \
 		--train_size 0.9 \
+		--segment $SEGMENT \
 		--image_size $IMAGE_SIZE \
+		--small_kernel \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
 		--rotate \
 		--flip \
-		--prob 0.2 \
+		--blur \
+		--blur_std 0.1 \
+		--prob 0.5 \
 		--backbone_type $BACKBONE_TYPE \
 		--arch $ARCH \
 		--epochs $EPOCHS \
@@ -42,8 +48,9 @@ do
 		--cosine_warmup 0 \
 		--cosine_cycles 1 \
 		--cosine_min_lr 0.0 \
-		--save_every 20 \
-		--enable_wandb
+		--save_every 200 \
+		--enable_wandb \
+		--balance
 	done
 done
 echo "Finished."

@@ -1,77 +1,93 @@
 import os
 import tqdm
 import numpy as np
+import pandas as pd
 import glob
 import nibabel as nib
+import matplotlib.pyplot as plt
+import seaborn as sns
 
-DATA_DIR = "D:/data/ADNI/FS7"
-brainmask_files = sorted(glob.glob(os.path.join(DATA_DIR, "*/*/brainmask.mgz")))
-brain_files = sorted(glob.glob(os.path.join(DATA_DIR, "*/*/brain.mgz")))
+DATA_DIR = "D:/data/ADNI"
+data_info = pd.read_csv('D:/data/ADNI/labels/data_info.csv')
 
-for brainmask_file in tqdm.tqdm(brainmask_files):
+# MRI brain - whole
+brain_files = sorted([os.path.join(DATA_DIR, 'FS7', row.MRI, 'mri/brain.mgz') for _, row in data_info.iterrows()])
+brain_dims = {k: {'min': 255, 'max': 0, 'len': 0} for k in range(3)}
+for brain_file in tqdm.tqdm(brain_files):
 
     # check ids are matched
-    brainmask = nib.load(brainmask_file)
-    brainmask = nib.as_closest_canonical(brainmask)
-    brainmask = brainmask.get_fdata()
+    brain = nib.load(brain_file)
+    brain = nib.as_closest_canonical(brain)
+    brain = brain.get_fdata()
 
-    dims = {k: {'min': 255, 'max': 0} for k in range(3)}
     for i, axis in enumerate([(1, 2), (0, 2), (0, 1)]):
-        s = np.sum(brainmask, axis=axis)
+        s = np.sum(brain, axis=axis)
         mask = np.where(s > 0)[0]
         m, M = mask[0], mask[-1]
-        if m < dims[i]['min']:
-            dims[i]['min'] = m
-        if M > dims[i]['max']:
-            dims[i]['max'] = M
-# dims
-# 60 - 199 -> 139
-# 43 - 210 -> 173
-# 54 - 182 -> 128
-###########
-for k, v in dims.items():
-    print(k)
-    print(v['max'] - v['min'])
-    print((v['max'] - v['min'])/2 + 192 / 2)
-    print((v['max'] - v['min'])/2 - 192 / 2)
+        l = M - m
+        if m < brain_dims[i]['min']:
+            brain_dims[i]['min'] = m
+        if M > brain_dims[i]['max']:
+            brain_dims[i]['max'] = M
+        if l > brain_dims[i]['len']:
+            brain_dims[i]['len'] = l
 
+# MRI - left and right hippocampus
+wmparc_files = sorted([os.path.join(DATA_DIR, 'FS7', row.MRI, 'mri/wmparc.mgz') for _, row in data_info.iterrows()])
+left_hippo_dims = {k: {'min': 255, 'max': 0, 'len': 0} for k in range(3)}
+right_hippo_dims = {k: {'min': 255, 'max': 0, 'len': 0} for k in range(3)}
+hippo_dims = {k: {'min': 255, 'max': 0, 'len': 0} for k in range(3)}
 
-xmin, xmax = 30, 222
-ymin, ymax = 30, 222
-zmin, zmax = 30, 222
+for wmparc_file in tqdm.tqdm(wmparc_files):
+    wmparc = nib.load(wmparc_file)
+    wmparc = nib.as_closest_canonical(wmparc)
+    wmparc = wmparc.get_fdata()
 
-for brain_file, brainmask_file in zip(brain_files, brainmask_files):
+    left_hippo = (wmparc == 17)
+    right_hippo = (wmparc == 53)
 
-    import matplotlib.pyplot as plt
-    import seaborn as sns
+    hippo = left_hippo + right_hippo
 
-    ##
-    brainmask = nib.load(brainmask_file)
-    brainmask = nib.as_closest_canonical(brainmask)
-    brainmask = brainmask.get_fdata()
-    brainmask_sliced = brainmask[xmin:xmax, ymin:ymax, zmin:zmax]
+    left_hippo = np.array(left_hippo, dtype=float)
+    right_hippo = np.array(right_hippo, dtype=float)
+    hippo = np.array(hippo, dtype=float)
 
-    fig, axs = plt.subplots(1, 3, figsize=(24, 8))
-    sns.heatmap(brainmask_sliced[96, :, :], cmap='binary', ax=axs[0], vmax=255)
-    sns.heatmap(brainmask_sliced[:, 96, :], cmap='binary', ax=axs[1], vmax=255)
-    sns.heatmap(brainmask_sliced[:, :, 96], cmap='binary', ax=axs[2], vmax=255)
-    plt.tight_layout()
-    plt.suptitle(brainmask_file)
-    plt.show()
+    for i, axis in enumerate([(1, 2), (0, 2), (0, 1)]):
+        s = np.sum(left_hippo, axis=axis)
+        mask = np.where(s > 0)[0]
+        m, M = mask[0], mask[-1]
+        l = M - m
+        if m < left_hippo_dims[i]['min']:
+            left_hippo_dims[i]['min'] = m
+        if M > left_hippo_dims[i]['max']:
+            left_hippo_dims[i]['max'] = M
+        if l > left_hippo_dims[i]['len']:
+            left_hippo_dims[i]['len'] = l
+        del s, mask, m, M, l
 
-    ##
-    brainmask = nib.load(brain_file)
-    brainmask = nib.as_closest_canonical(brainmask)
-    brainmask = brainmask.get_fdata()
-    brainmask_sliced = brainmask[xmin:xmax, ymin:ymax, zmin:zmax]
+    for i, axis in enumerate([(1, 2), (0, 2), (0, 1)]):
+        s = np.sum(right_hippo, axis=axis)
+        mask = np.where(s > 0)[0]
+        m, M = mask[0], mask[-1]
+        l = M - m
+        if m < right_hippo_dims[i]['min']:
+            right_hippo_dims[i]['min'] = m
+        if M > right_hippo_dims[i]['max']:
+            right_hippo_dims[i]['max'] = M
+        if l > right_hippo_dims[i]['len']:
+            right_hippo_dims[i]['len'] = l
+        del s, mask, m, M, l
 
-    fig, axs = plt.subplots(1, 3, figsize=(24, 8))
-    sns.heatmap(brainmask_sliced[96, :, :], cmap='binary', ax=axs[0], vmax=255)
-    sns.heatmap(brainmask_sliced[:, 96, :], cmap='binary', ax=axs[1], vmax=255)
-    sns.heatmap(brainmask_sliced[:, :, 96], cmap='binary', ax=axs[2], vmax=255)
-    plt.tight_layout()
-    plt.suptitle(brain_file)
-    plt.show()
+    for i, axis in enumerate([(1, 2), (0, 2), (0, 1)]):
+        s = np.sum(hippo, axis=axis)
+        mask = np.where(s > 0)[0]
+        m, M = mask[0], mask[-1]
+        l = M - m
+        if m < hippo_dims[i]['min']:
+            hippo_dims[i]['min'] = m
+        if M > hippo_dims[i]['max']:
+            hippo_dims[i]['max'] = M
+        if l > hippo_dims[i]['len']:
+            hippo_dims[i]['len'] = l
+        del s, mask, m, M, l
 
-
-    break

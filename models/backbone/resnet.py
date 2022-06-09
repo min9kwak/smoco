@@ -152,6 +152,11 @@ class ResNetBackbone(BackboneBase):
 
         return x
 
+    def _fix_first_conv(self):
+        conv1 = self.conv1
+        self.conv1 = nn.Conv3d(conv1.in_channels, conv1.out_channels,
+                               kernel_size=(3, 3, 3), stride=(1, 1, 1), padding=(1, 1, 1), bias=False)
+
 
 def _resnet(
     block: Type[Union[ResNetBlock, ResNetBottleneck]],
@@ -186,9 +191,18 @@ if __name__ == '__main__':
 
     import torch
     import torch.nn as nn
-    backbone = build_resnet_backbone(arch=50, no_max_pool=False, in_channels=1, semi=True)
-    images = torch.randn(size=(3, 1, 192, 192, 192))
 
-    with torch.no_grad():
-        feature_map = backbone(images)
-        print(feature_map.shape)
+    images = torch.randn(size=(3, 1, 36, 36, 36))
+
+    backbone = build_resnet_backbone(arch=50, no_max_pool=False, in_channels=1, semi=True, small_kernel=False)
+
+    feature_map = backbone(images)
+    print(backbone.conv1)
+    print(feature_map.shape)
+
+    print('---------------')
+
+    backbone = build_resnet_backbone(arch=50, no_max_pool=False, in_channels=1, semi=True, small_kernel=True)
+    feature_map = backbone(images)
+    print(backbone.conv1)
+    print(feature_map.shape)

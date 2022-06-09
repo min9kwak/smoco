@@ -20,9 +20,19 @@ from models.head.classifier import LinearClassifier
 
 from datasets.mri import MRI, MRIProcessor
 from datasets.pet import PET, PETProcessor
+from datasets.subregion.mri import SubMRI, SubMRIProcessor
+from datasets.subregion.pet import SubPET, SubPETProcessor
+
 from datasets.transforms import make_transforms, compute_statistics
 
 from utils.logging import get_rich_logger
+
+segment2class = {'left_hippocampus': [17],
+                 'right_hippocampus': [53],
+                 'hippocampus': [17, 53]}
+IMAGE_SIZE = {'left_hippocampus': 64,
+              'right_hippocampus': 96,
+              'hippocampus': 96}
 
 
 def main():
@@ -30,7 +40,10 @@ def main():
 
     config = ClassificationConfig.parse_arguments()
 
-    config.task = config.data_type
+    if config.segment:
+        config.task = config.data_type + '-sub'
+    else:
+        config.task = config.data_type
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in config.gpus])
     num_gpus_per_node = len(config.gpus)
@@ -100,22 +113,42 @@ def main_worker(local_rank: int, config: object):
     else:
         raise NotImplementedError
 
+    if config.small_kernel:
+        backbone._fix_first_conv()
+
     out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
     classifier = LinearClassifier(in_channels=out_dim, num_classes=2, activation=activation)
 
     # load data
     if config.data_type == 'mri':
-        PROCESSOR = MRIProcessor
-        DATA = MRI
+        if config.segment:
+            PROCESSOR = SubMRIProcessor
+            DATA = SubMRI
+        else:
+            PROCESSOR = MRIProcessor
+            DATA = MRI
     elif config.data_type == 'pet':
-        PROCESSOR = PETProcessor
-        DATA = PET
+        if config.segment:
+            PROCESSOR = SubPETProcessor
+            DATA = SubPET
+        else:
+            PROCESSOR = PETProcessor
+            DATA = PET
     else:
         raise NotImplementedError
 
-    data_processor = PROCESSOR(root=config.root,
-                               data_info=config.data_info,
-                               random_state=config.random_state)
+    if config.segment:
+        data_processor = PROCESSOR(root=config.root,
+                                   data_info=config.data_info,
+                                   mci_only=config.mci_only,
+                                   segment=config.segment,
+                                   random_state=config.random_state)
+    else:
+        data_processor = PROCESSOR(root=config.root,
+                                   data_info=config.data_info,
+                                   mci_only=config.mci_only,
+                                   random_state=config.random_state)
+
     datasets = data_processor.process(train_size=config.train_size)
 
     if config.intensity == 'normalize':
