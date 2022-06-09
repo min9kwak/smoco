@@ -6,9 +6,13 @@ import glob
 import nibabel as nib
 import matplotlib.pyplot as plt
 import seaborn as sns
+import pickle
 
 DATA_DIR = "D:/data/ADNI"
 data_info = pd.read_csv('D:/data/ADNI/labels/data_info.csv')
+with open(os.path.join(DATA_DIR, 'labels/mri_abnormal.pkl'), 'rb') as fb:
+    mri_abnormal = pickle.load(fb)
+data_info = data_info.loc[~data_info.MRI.isin(mri_abnormal)]
 
 # MRI brain - whole
 brain_files = sorted([os.path.join(DATA_DIR, 'FS7', row.MRI, 'mri/brain.mgz') for _, row in data_info.iterrows()])

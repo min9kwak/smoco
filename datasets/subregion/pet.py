@@ -28,6 +28,11 @@ class SubPETProcessor(object):
         assert segment in ['left_hippocampus', 'right_hippocampus', 'hippocampus']
         self.segment = segment
 
+        # remove abnormal MRI
+        with open(os.path.join(root, 'labels/mri_abnormal.pkl'), 'rb') as fb:
+            mri_abnormal = pickle.load(fb)
+        self.data_info = self.data_info.loc[~self.data_info.MRI.isin(mri_abnormal)]
+
         # unlabeled and labeled
         self.u_data_info = self.data_info[self.data_info['Conv'].isin([-1])]
         self.data_info = self.data_info[self.data_info['Conv'].isin([0, 1])]
