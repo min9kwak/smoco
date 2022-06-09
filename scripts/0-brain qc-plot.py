@@ -29,9 +29,9 @@ for brain_file in tqdm.tqdm(brain_files):
 
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
     axs = axs.ravel()
-    sns.heatmap(brain[128, :, :], vmin=0, vmax=vmax, ax=axs[0])
-    sns.heatmap(brain[:, 128, :], vmin=0, vmax=vmax, ax=axs[1])
-    sns.heatmap(brain[:, :, 128], vmin=0, vmax=vmax, ax=axs[2])
+    sns.heatmap(brain[128, :, :], vmin=0, vmax=vmax, ax=axs[0], cmap='binary')
+    sns.heatmap(brain[:, 128, :], vmin=0, vmax=vmax, ax=axs[1], cmap='binary')
+    sns.heatmap(brain[:, :, 128], vmin=0, vmax=vmax, ax=axs[2], cmap='binary')
     plt.tight_layout()
     plt.savefig(os.path.join(plt_dir, f'{id}.png'),
                 bbox_inches='tight')
@@ -78,9 +78,9 @@ for pet_file in tqdm.tqdm(pet_files):
 
     fig, axs = plt.subplots(1, 3, figsize=(12, 4))
     axs = axs.ravel()
-    sns.heatmap(pet[128, :, :], vmin=0, vmax=vmax, ax=axs[0])
-    sns.heatmap(pet[:, 128, :], vmin=0, vmax=vmax, ax=axs[1])
-    sns.heatmap(pet[:, :, 128], vmin=0, vmax=vmax, ax=axs[2])
+    sns.heatmap(pet[128, :, :], vmin=0, vmax=vmax, ax=axs[0], cmap='binary')
+    sns.heatmap(pet[:, 128, :], vmin=0, vmax=vmax, ax=axs[1], cmap='binary')
+    sns.heatmap(pet[:, :, 128], vmin=0, vmax=vmax, ax=axs[2], cmap='binary')
     plt.tight_layout()
     plt.savefig(os.path.join(plt_dir, f'{id}.png'),
                 bbox_inches='tight')

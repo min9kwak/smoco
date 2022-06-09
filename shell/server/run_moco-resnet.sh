@@ -2,8 +2,9 @@ echo "Experiments Started"
 SERVER=dgx
 GPUS=0
 
-DATA_TYPE=mri
-IMAGE_SIZE=128
+DATA_TYPE=pet
+SEGMENT=global
+IMAGE_SIZE=98
 RANDOM_STATE=2021
 
 INTENSITY=scale
@@ -18,7 +19,7 @@ PROJECTOR_DIM=128
 NUM_NEGATIVES=1024
 KEY_MOMENTUM=0.995
 
-for RANDOM_STATE in 2021 2022 2023 2024 205
+for RANDOM_STATE in 2021 2022 2023
 do
 	for LEARNING_RATE in 0.01
 	do
@@ -30,6 +31,7 @@ do
 		--data_info labels/data_info.csv \
 		--mci_only \
 		--train_size 0.9 \
+		--segment $SEGMENT \
 		--image_size $IMAGE_SIZE \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
@@ -37,6 +39,7 @@ do
 		--flip \
 		--blur \
 		--blur_std 0.1 \
+		--prob 0.5 \
 		--backbone_type $BACKBONE_TYPE \
 		--arch $ARCH \
 		--epochs $EPOCHS \
@@ -47,7 +50,7 @@ do
 		--cosine_warmup 0 \
 		--cosine_cycles 1 \
 		--cosine_min_lr 0.0 \
-		--save_every 100 \
+		--save_every 200 \
 		--enable_wandb \
 		--projector_dim $PROJECTOR_DIM \
 		--num_negatives $NUM_NEGATIVES \

@@ -11,20 +11,17 @@ from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 
 
-class SubMRIProcessor(object):
+class MRIProcessor(object):
     def __init__(self,
                  root: str,
                  data_info: str,
                  mci_only: bool = False,
-                 segment: str = 'left_hippocampus',
                  random_state: int = 2022):
 
         self.root = root
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'MONTH': int, 'Conv': int})
         if mci_only:
             self.data_info = self.data_info.loc[self.data_info.MCI == 1]
-        assert segment in ['left_hippocampus', 'right_hippocampus', 'hippocampus']
-        self.segment = segment
 
         # remove abnormal MRI
         with open(os.path.join(root, 'labels/mri_abnormal.pkl'), 'rb') as fb:
@@ -50,18 +47,22 @@ class SubMRIProcessor(object):
         test_files = self.data_info[self.data_info['RID'].isin(test_rids)]['MRI'].tolist()
         u_train_files = self.u_data_info['MRI'].tolist()
 
-        brain_train = [os.path.join(self.root, f'segment/FS7/{self.segment}', f'{f}.pkl') for f in train_files]
+        brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in train_files]
         y_train = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in train_files])
 
         self.class_weight = class_weight.compute_class_weight(class_weight='balanced',
                                                               classes=np.unique(y_train),
                                                               y=y_train)
 
-        brain_test = [os.path.join(self.root, f'segment/FS7/{self.segment}', f'{f}.pkl') for f in test_files]
+        brain_test = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in test_files]
         y_test = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in test_files])
 
-        u_brain_train = [os.path.join(self.root, f'segment/FS7/{self.segment}', f'{f}.pkl') for f in u_train_files]
+        u_brain_train = [os.path.join(self.root, 'FS7', f, 'mri/brain.mgz') for f in u_train_files]
         u_y_train = np.array([self.u_data_info[self.u_data_info['MRI'] == f]['Conv'].values[0] for f in u_train_files])
+
+        assert all([os.path.isfile(b) for b in brain_train])
+        assert all([os.path.isfile(b) for b in brain_test])
+        assert all([os.path.isfile(b) for b in u_brain_train])
 
         datasets = {'train': {'path': brain_train, 'y': y_train},
                     'test': {'path': brain_test, 'y': y_test},
@@ -70,7 +71,15 @@ class SubMRIProcessor(object):
         return datasets
 
 
-class SubMRIBase(Dataset):
+class MRIBase(Dataset):
+
+    # SLICE = {'xmin': 30, 'xmax': 222,
+    #          'ymin': 50, 'ymax': 242,
+    #          'zmin': 35, 'zmax': 227}
+
+    SLICE = {'xmin': 30, 'xmax': 222,
+             'ymin': 30, 'ymax': 222,
+             'zmin': 30, 'zmax': 222}
 
     def __init__(self,
                  dataset: dict,
@@ -93,12 +102,20 @@ class SubMRIBase(Dataset):
         raise NotImplementedError
 
     def load_image(self, path):
-        with open(path, 'rb') as f:
-            image = pickle.load(f)
+        image = nib.load(path)
+        image = nib.as_closest_canonical(image)
+        image = image.get_fdata()
+        # image = self.slice_image(image)
+        return image
+
+    def slice_image(self, image):
+        image = image[self.SLICE['xmin']:self.SLICE['xmax'],
+                      self.SLICE['ymin']:self.SLICE['ymax'],
+                      self.SLICE['zmin']:self.SLICE['zmax']]
         return image
 
 
-class SubMRI(SubMRIBase):
+class MRI(MRIBase):
 
     def __init__(self, dataset, pin_memory, transform, **kwargs):
         super().__init__(dataset, pin_memory, **kwargs)
@@ -118,7 +135,7 @@ class SubMRI(SubMRIBase):
         return dict(x=img, y=y, idx=idx)
 
 
-class SubMRIMoCo(SubMRIBase):
+class MRIMoCo(MRIBase):
 
     def __init__(self, dataset, pin_memory, query_transform, key_transform, **kwargs):
         super().__init__(dataset, pin_memory, **kwargs)
@@ -148,29 +165,70 @@ if __name__ == '__main__':
 
     from datasets.transforms import compute_statistics, make_transforms
 
-    processor = SubMRIProcessor(root='D:/data/ADNI',
-                                data_info='labels/data_info.csv',
-                                mci_only=False,
-                                segment='left_hippocampus',
-                                random_state=2022)
+    processor = MRIProcessor(root='D:/data/ADNI',
+                             data_info='labels/data_info.csv',
+                             random_state=2022)
     datasets = processor.process(train_size=0.9)
 
-    from torch.utils.data import Dataset, DataLoader
+    mean_std = compute_statistics(DATA=MRI, normalize_set=datasets['train'])
+    train_transform, test_transform = make_transforms(image_size=96,
+                                                      intensity='normalize',
+                                                      mean_std=mean_std,
+                                                      rotate=True,
+                                                      flip=True,
+                                                      zoom=True,
+                                                      blur=True,
+                                                      blur_std=0.1,
+                                                      prob=1.0)
 
-    train_set = SubMRI(dataset=datasets['train'], pin_memory=False, transform=None)
-    train_loader = DataLoader(train_set)
+    train_set = datasets['train']
+    train_set = MRI(dataset=train_set, transform=train_transform, pin_memory=False)
+    train_loader = DataLoader(train_set, batch_size=2, shuffle=False)
 
     for batch in train_loader:
-        image = batch['x']
-        image = image.squeeze().numpy()
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+        sns.heatmap(batch['x'][0, 0, 48, :, :], cmap='binary', ax=axs[0])
+        sns.heatmap(batch['x'][0, 0, :, 48, :], cmap='binary', ax=axs[1])
+        sns.heatmap(batch['x'][0, 0, :, :, 48], cmap='binary', ax=axs[2])
+        plt.show()
+        break
 
-        import matplotlib.pyplot as plt
-        import seaborn as sns
+    # compare loading speed
+    import pickle
+    import os
+    DATA_DIR = "D:/data/ADNI/FS7/m127S0925L111010M615TCF/mri"
+    image_file = os.path.join(DATA_DIR, 'brain.mgz')
 
-        fig, axs = plt.subplots(1, 3, figsize=(24, 8))
-        sns.heatmap(image[20, :, :], cmap='binary', ax=axs[0], vmax=2)
-        sns.heatmap(image[:, 48, :], cmap='binary', ax=axs[1], vmax=2)
-        sns.heatmap(image[:, :, 30], cmap='binary', ax=axs[2], vmax=2)
-        plt.tight_layout()
+    import time
+    s1 = time.time()
+    image = nib.load(image_file)
+    image = nib.as_closest_canonical(image)
+    image = image.get_fdata()
+    e1 = time.time()
+    print(e1-s1)
+
+    s2 = time.time()
+    with open(image_file.replace('.mgz', '.pkl'), 'rb') as f:
+        image = pickle.load(f)
+    e2 = time.time()
+    print(e2 - s2)
+
+    # check MRIMoCo
+    train_set = datasets['train']
+    train_set = MRIMoCo(dataset=train_set, pin_memory=False,
+                        query_transform=train_transform, key_transform=train_transform)
+    train_loader = DataLoader(train_set, batch_size=2, shuffle=False)
+
+    for batch in train_loader:
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+        sns.heatmap(batch['x1'][0, 0, 48, :, :], cmap='binary', ax=axs[0])
+        sns.heatmap(batch['x1'][0, 0, :, 48, :], cmap='binary', ax=axs[1])
+        sns.heatmap(batch['x1'][0, 0, :, :, 48], cmap='binary', ax=axs[2])
+        plt.show()
+
+        fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+        sns.heatmap(batch['x2'][0, 0, 48, :, :], cmap='binary', ax=axs[0])
+        sns.heatmap(batch['x2'][0, 0, :, 48, :], cmap='binary', ax=axs[1])
+        sns.heatmap(batch['x2'][0, 0, :, :, 48], cmap='binary', ax=axs[2])
         plt.show()
         break

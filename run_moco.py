@@ -8,7 +8,6 @@ import numpy as np
 import wandb
 
 import torch
-import torch.nn as nn
 import torch.multiprocessing as mp
 import torch.distributed as dist
 
@@ -23,19 +22,10 @@ from layers.batchnorm import SplitBatchNorm3d
 
 from datasets.mri import MRI, MRIMoCo, MRIProcessor
 from datasets.pet import PET, PETMoCo, PETProcessor
-from datasets.subregion.mri import SubMRI, SubMRIMoCo, SubMRIProcessor
-from datasets.subregion.pet import SubPET, SubPETMoCo, SubPETProcessor
 
 from datasets.transforms import make_transforms, compute_statistics
 
 from utils.logging import get_rich_logger
-
-segment2class = {'left_hippocampus': [17],
-                 'right_hippocampus': [53],
-                 'hippocampus': [17, 53]}
-IMAGE_SIZE = {'left_hippocampus': 64,
-              'right_hippocampus': 96,
-              'hippocampus': 96}
 
 
 def main():
@@ -43,10 +33,7 @@ def main():
 
     config = MoCoConfig.parse_arguments()
 
-    if config.segment:
-        config.task = config.data_type + '-moco-sub'
-    else:
-        config.task = config.data_type + '-moco'
+    config.task = config.data_type + f'-moco-{config.segment}'
 
     os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in config.gpus])
     num_gpus_per_node = len(config.gpus)
@@ -141,37 +128,21 @@ def main_worker(local_rank: int, config: object):
 
     # load data
     if config.data_type == 'mri':
-        if config.segment:
-            PROCESSOR = SubMRIProcessor
-            DATAMoCo = SubMRIMoCo
-            DATA = SubMRI
-        else:
-            PROCESSOR = MRIProcessor
-            DATAMoCo = MRIMoCo
-            DATA = MRI
+        PROCESSOR = MRIProcessor
+        DATAMoCo = MRIMoCo
+        DATA = MRI
     elif config.data_type == 'pet':
-        if config.segment:
-            PROCESSOR = SubPETProcessor
-            DATAMoCo = SubPETMoCo
-            DATA = SubPET
-        else:
-            PROCESSOR = PETProcessor
-            DATAMoCo = PETMoCo
-            DATA = PET
+        PROCESSOR = PETProcessor
+        DATAMoCo = PETMoCo
+        DATA = PET
     else:
         raise NotImplementedError
 
-    if config.segment:
-        data_processor = PROCESSOR(root=config.root,
-                                   data_info=config.data_info,
-                                   mci_only=config.mci_only,
-                                   segment=config.segment,
-                                   random_state=config.random_state)
-    else:
-        data_processor = PROCESSOR(root=config.root,
-                                   data_info=config.data_info,
-                                   mci_only=config.mci_only,
-                                   random_state=config.random_state)
+    data_processor = PROCESSOR(root=config.root,
+                               data_info=config.data_info,
+                               mci_only=config.mci_only,
+                               segment=config.segment,
+                               random_state=config.random_state)
 
     datasets = data_processor.process(train_size=config.train_size)
 

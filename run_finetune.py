@@ -17,7 +17,7 @@ from tasks.classification import Classification
 from models.backbone.base import calculate_out_features
 from models.backbone.densenet import DenseNetBackbone
 from models.backbone.resnet import build_resnet_backbone
-from models.head.classifier import LinearClassifier, MLPClassifier
+from models.head.classifier import LinearClassifier
 
 from datasets.mri import MRI, MRIProcessor
 from datasets.pet import PET, PETProcessor
@@ -50,8 +50,8 @@ def main():
     # inherit pretrained configs
     pretrained_config_names = [
         # data_parser
-        'data_type', 'root', 'data_info', 'train_size', 'image_size', 'pin_memory', 'random_state',
-        'intensity', 'rotate', 'flip', 'zoom', 'blur', 'blur_std', 'prob',
+        'data_type', 'root', 'data_info', 'mci_only', 'train_size', 'segment', 'image_size', 'small_kernel',
+        'pin_memory', 'random_state', 'intensity', 'rotate', 'flip', 'zoom', 'blur', 'blur_std', 'prob',
         # model_parser
         'backbone_type', 'init_features', 'growth_rate', 'block_config', 'bn_size', 'dropout_rate',
         'arch', 'no_max_pool',
@@ -59,10 +59,6 @@ def main():
 
     for name in pretrained_config_names:
         setattr(config, name, pretrained_config[name])
-
-    ####
-    setattr(config, 'root', 'D:/data/ADNI')
-    ####
 
     config.task = config.finetune_data_type
 
@@ -107,7 +103,7 @@ def main_worker(local_rank: int, config: object):
     if config.enable_wandb:
         wandb.init(
             name=f'{config.backbone_type} : {config.hash}',
-            project=f'sttr-{config.data_type}-finetune',
+            project=f'sttr-{config.data_type}-{config.segment}-finetune',
             config=config.__dict__
         )
 
@@ -129,6 +125,9 @@ def main_worker(local_rank: int, config: object):
         activation = False
     else:
         raise NotImplementedError
+
+    if config.small_kernel:
+        backbone._fix_first_conv()
 
     # load pretrained model weights
     backbone.load_weights_from_checkpoint(path=config.pretrained_file, key='backbone')
@@ -154,9 +153,12 @@ def main_worker(local_rank: int, config: object):
     else:
         raise NotImplementedError
 
-    data_processor = PROCESSOR(root='D:/data/ADNI',
+    data_processor = PROCESSOR(root=config.root,
                                data_info=config.data_info,
+                               mci_only=config.mci_only,
+                               segment=config.segment,
                                random_state=config.random_state)
+
     datasets = data_processor.process(train_size=config.train_size)
 
     if config.intensity == 'normalize':

@@ -3,7 +3,8 @@ SERVER=dgx
 GPUS=0
 
 DATA_TYPE=pet
-IMAGE_SIZE=128
+SEGMENT=global
+IMAGE_SIZE=98
 RANDOM_STATE=2021
 
 INTENSITY=scale
@@ -15,7 +16,7 @@ BACKBONE_TYPE=resnet
 ARCH=50
 
 
-for RANDOM_STATE in 2021 2022 2023 2024
+for RANDOM_STATE in 2021 2022 2023
 do
 	for LEARNING_RATE in 0.0001
 	do
@@ -27,6 +28,7 @@ do
 		--data_info labels/data_info.csv \
 		--mci_only \
 		--train_size 0.9 \
+		--segment $SEGMENT \
 		--image_size $IMAGE_SIZE \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
