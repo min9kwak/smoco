@@ -18,15 +18,12 @@ GROWTH_RATE=32
 BLOCK_CONFIG="6,12,24,16"
 DROPOUT_RATE=0.0
 
-PROJECTOR_DIM=128
-NUM_NEGATIVES=1024
-KEY_MOMENTUM=0.995
 
 for RANDOM_STATE in 2021 2022 2023
 do
-	for LEARNING_RATE in 0.01
+	for LEARNING_RATE in 0.0001
 	do
-		python ./run_moco.py \
+		python ./run_classification.py \
 		--gpus $GPUS \
 		--server $SERVER \
 		--data_type $DATA_TYPE \
@@ -51,7 +48,7 @@ do
 		--dropout_rate $DROPOUT_RATE \
 		--epochs $EPOCHS \
 		--batch_size $BATCH_SIZE \
-		--optimizer sgd \
+		--optimizer adamw \
 		--learning_rate $LEARNING_RATE \
 		--weight_decay 0.0001 \
 		--cosine_warmup 0 \
@@ -59,10 +56,7 @@ do
 		--cosine_min_lr 0.0 \
 		--save_every 200 \
 		--enable_wandb \
-		--projector_dim $PROJECTOR_DIM \
-		--num_negatives $NUM_NEGATIVES \
-		--key_momentum $KEY_MOMENTUM \
-		--split_bn
+		--balance
 	done
 done
 echo "Finished."
