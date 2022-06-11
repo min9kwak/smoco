@@ -22,15 +22,38 @@ from utils.logging import get_rich_pbar, make_epoch_description
 import wandb
 
 
-class MoCoLoss(nn.Module):
+def mask_topk(mask, topk):
+    mask = mask.float()
+    selected = torch.zeros(mask.size(0), topk, device=mask.device, dtype=torch.int64)
+    at_least_one = mask.sum(1).gt(0)
+
+    topk_index = torch.multinomial(mask[at_least_one], topk)
+    selected[at_least_one] = topk_index
+
+    mask_selected = torch.zeros(*mask.size(), device=mask.device).scatter(1, selected, 1)
+    return mask.mul(mask_selected)
+
+
+def loss_on_mask(loss, mask):
+    if mask.sum() == 0:
+        return torch.tensor(float('nan'), device=loss.device)
+    else:
+        count = mask.sum(1, keepdim=True)
+        loss = loss.mul(mask).sum(dim=1, keepdim=True)
+        loss.div_(torch.clamp_min(count, 1))
+        return loss.sum() / (count > 0).sum()
+
+
+class SupMoCoLoss(nn.Module):
     def __init__(self, temperature: float = 0.2):
-        super(MoCoLoss, self).__init__()
+        super(SupMoCoLoss, self).__init__()
         self.temperature = temperature
 
     def forward(self,
                 queries: torch.FloatTensor,
                 keys: torch.FloatTensor,
-                queue: torch.FloatTensor):
+                queue: torch.FloatTensor,
+                labels: torch.Tensor):
 
         # Calculate logits
         pos_logits = torch.einsum('nc,nc->n', [queries, keys]).view(-1, 1)
@@ -38,13 +61,24 @@ class MoCoLoss(nn.Module):
         logits = torch.cat([pos_logits, neg_logits], dim=1)  # (B, 1+K)
         logits.div_(self.temperature)
 
-        # Create labels
-        labels = torch.zeros(logits.size(0), dtype=torch.long, device=logits.device)
+        nll = -1. * F.log_softmax(logits, dim=1)
 
-        # Compute loss
-        loss = nn.functional.cross_entropy(logits, labels)
+        # create masks
+        B, _ = neg_logits.size()
 
-        return loss, logits, labels
+        # 1: vanilla MoCo loss
+        mask_base = torch.zeros_like(neg_logits)
+        mask_base = torch.cat((torch.ones(B, 1, device=logits.device), mask_base), dim=1)
+
+        # 2: Supervised Contrastive Loss
+        mask_class = torch.eq(labels.view(-1, 1), queue.labels.view(-1, 1).T).float()
+        mask_class[labels == -1, :] = 0
+        mask_class = torch.cat((torch.zeros(B, 1, device=logits.device), mask_class), dim=1)
+
+        masks = [mask_base, mask_class]
+        losses = [loss_on_mask(nll, mask) for mask in masks]
+
+        return losses, logits, torch.zeros(logits.size(0), dtype=torch.long, device=logits.device)
 
 
 class MemoryQueue(nn.Module):
@@ -58,10 +92,9 @@ class MemoryQueue(nn.Module):
 
         with torch.no_grad():
             self.buffer = torch.randn(*self.size, device=self.device)  # (f, K)
-            self.buffer = F.normalize(self.buffer, dim=0)  # l2 normalize
+            self.buffer = F.normalize(self.buffer, dim=0)              # l2 normalize
             self.ptr = torch.zeros(1, dtype=torch.long, device=self.device)
-            self.labels = torch.zeros(self.size[1], dtype=torch.long, device=self.device)  # (K, )
-
+            self.labels = torch.full((self.size[1], ), fill_value=-1, dtype=torch.long, device=self.device)
         self.num_updates = 0
         self.is_reliable = False
 
@@ -102,14 +135,14 @@ class MemoryQueue(nn.Module):
         self.num_updates += 1
 
 
-class MoCo(object):
+class SupMoCo(object):
     def __init__(self,
                  backbone: nn.Module,
                  head: nn.Module,
                  queue: MemoryQueue,
                  loss_function: nn.Module,
                  ):
-        super(MoCo, self).__init__()
+        super(SupMoCo, self).__init__()
 
         # Initialize networks
         self.queue = queue
@@ -144,7 +177,11 @@ class MoCo(object):
                 local_rank: int = 0,
                 mixed_precision: bool = False,
                 enable_wandb: bool = True,
-                resume: str = None):
+                resume: str = None,
+                alphas: list = [1.0, 0.25, 0.50],
+                alphas_min: list = [1.0, 0.0, 0.0],
+                alphas_decay_end: list = [-1, 100, 200],
+                ):
         """Prepare MoCo pre-training."""
 
         # Set attributes
@@ -158,6 +195,9 @@ class MoCo(object):
         self.mixed_precision = mixed_precision
         self.enable_wandb = enable_wandb
         self.resume = resume
+        self.alphas = alphas
+        self.alphas_min = alphas_min
+        self.alphas_decay_end = alphas_decay_end
 
         self.optimizer = get_optimizer(
             params=self.net_q.parameters(),
@@ -196,6 +236,9 @@ class MoCo(object):
         # Mixed precision training (optional, enabled by default.)
         self.scaler = torch.cuda.amp.GradScaler() if mixed_precision else None
 
+        # alpha factor
+        self.muls = []
+
         # Ready to train!
         self.prepared = True
 
@@ -203,7 +246,7 @@ class MoCo(object):
             dataset: torch.utils.data.Dataset,
             memory_set: torch.utils.data.Dataset = None,
             query_set: torch.utils.data.Dataset = None,
-            save_every: int = 50,
+            save_every: int = 100,
             **kwargs):
 
         if not self.prepared:
@@ -236,6 +279,8 @@ class MoCo(object):
 
             if self.distributed and (sampler is not None):
                 sampler.set_epoch(epoch)
+            self.epoch = epoch
+            self._alpha_decay_multiplier()
 
             # Train
             history = self.train(train_loader)
@@ -285,6 +330,8 @@ class MoCo(object):
         self._set_learning_phase(train=True)
         result = {
             'loss': torch.zeros(steps, device=self.local_rank),
+            'loss_moco': torch.zeros(steps, device=self.local_rank),
+            'loss_class': torch.zeros(steps, device=self.local_rank),
             'rank@1': torch.zeros(steps, device=self.local_rank),
         }
 
@@ -294,8 +341,11 @@ class MoCo(object):
 
             for i, batch in enumerate(data_loader):
 
-                loss, logits, labels = self.train_step(batch)
+                losses, loss, logits, labels = self.train_step(batch)
+
                 result['loss'][i] = loss.detach()
+                result['loss_moco'][i] = losses[0].detach()
+                result['loss_class'][i] = losses[1].detach()
                 result['rank@1'][i] = TopKAccuracy(k=1)(logits, labels)
 
                 if self.local_rank == 0:
@@ -314,6 +364,7 @@ class MoCo(object):
             # Get data (two views)
             x_q = batch['x1'].to(self.local_rank)
             x_k = batch['x2'].to(self.local_rank)
+            y = batch['y'].to(self.local_rank)
 
             # Compute query features; (B, f)
             z_q = F.normalize(self.net_q(x_q), dim=1)
@@ -332,15 +383,18 @@ class MoCo(object):
                 z_k = ForMoCo.batch_unshuffle_ddp(z_k, idx_unshuffle)
 
             # Compute loss
-            loss, logits, labels = self.loss_function(z_q, z_k, self.queue)
+            losses, logits, labels = self.loss_function(z_q, z_k, self.queue, y)
+            losses = torch.stack([a * l for a, l in zip(self.alphas, losses)])
+            losses = torch.stack([m * l for m, l in zip(self.muls, losses)])
+            loss = torch.nansum(losses)
 
             # Backpropagate & update
             self.backprop(loss)
 
             # Update memory queue
-            self.queue.update(keys=z_k)
+            self.queue.update(keys=z_k, labels=y)
 
-        return loss, logits, labels
+        return losses, loss, logits, labels
 
     def backprop(self, loss: torch.FloatTensor):
         if self.scaler is not None:
@@ -419,3 +473,15 @@ class MoCo(object):
     def freeze_params(net: nn.Module):
         for p in net.parameters():
             p.requires_grad = False
+
+    def _alpha_decay_multiplier(self):
+        muls = []
+        for i, (alpha_base, alpha_min) in enumerate(zip(self.alphas, self.alphas_min)):
+            if self.alphas_decay_end[i] == -1:
+                mul = 1.0
+            elif self.epoch <= self.alphas_decay_end[i]:
+                mul = 1 - (alpha_base - alpha_min) * (self.epoch - 1) / ((self.alphas_decay_end[i] - 1) * alpha_base)
+            else:
+                mul = alpha_min / alpha_base
+            muls.append(mul)
+        self.muls = muls
