@@ -29,7 +29,7 @@ for ALPHAS in "1.0, 1.0" "1.0, 0.5", "1.0, 2.0"
 do
 	for ALPHAS_DECAY_END in "-1, -1" "-1, 20"
 	do
-		python ./run_moco.py \
+		python ./run_supmoco.py \
 		--gpus $GPUS \
 		--server $SERVER \
 		--data_type $DATA_TYPE \
@@ -61,7 +61,10 @@ do
 		--projector_dim $PROJECTOR_DIM \
 		--num_negatives $NUM_NEGATIVES \
 		--key_momentum $KEY_MOMENTUM \
-		--split_bn
+		--split_bn \
+		--alphas=$ALPHAS \
+		--alphas_min=$ALPHAS_MIN \
+		--alphas_decay_end=$ALPHAS_DECAY_END
 	done
 done
 echo "Finished."
