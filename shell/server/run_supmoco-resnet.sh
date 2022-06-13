@@ -27,8 +27,9 @@ ALPHAS_DECAY_END="-1,-1"
 
 for ALPHAS in "1.0,1.0" "1.0,0.5", "1.0,2.0"
 do
+  for RANDOM_STATE in 2021
 	do
-		python ./run_supmoco.py \
+	  python ./run_supmoco.py \
 		--gpus $GPUS \
 		--server $SERVER \
 		--data_type $DATA_TYPE \
