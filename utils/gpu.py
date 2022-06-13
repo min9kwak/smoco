@@ -6,8 +6,8 @@ STR2GPU = {'00': 'MIG-4e9bdbba-d0ea-5377-ae8a-a78ccab2f5e5',
            '11': 'MIG-5ceca708-e5aa-5675-b039-37a77bd4b6cf',
            '20': 'MIG-dc45e153-fb1e-5b2d-8a31-d3fb9494cd80',
            '21': 'MIG-21d343f4-de6e-5d44-9774-e2f3dbab968d',
-           '30': 'MIG-21d343f4-de6e-5d44-9774-e2f3dbab968d',
-           '31': 'MIG-21d343f4-de6e-5d44-9774-e2f3dbab968d'}
+           '30': 'MIG-0b2452d4-9b27-530f-a6f1-1c2d05dfaa72',
+           '31': 'MIG-e46a8085-268f-5417-8e5a-a9e20578424d'}
 
 
 def set_gpu(config):
