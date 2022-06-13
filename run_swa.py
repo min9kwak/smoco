@@ -24,6 +24,7 @@ from datasets.pet import PETMoCo, PETProcessor
 from datasets.transforms import make_transforms, compute_statistics
 
 from utils.logging import get_rich_logger
+from utils.gpu import set_gpu
 
 
 def main():
@@ -33,7 +34,7 @@ def main():
 
     config.task = config.data_type + '-swa'
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in config.gpus])
+    set_gpu(config)
     num_gpus_per_node = len(config.gpus)
     world_size = config.num_nodes * num_gpus_per_node
     distributed = world_size > 1

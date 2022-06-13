@@ -24,6 +24,7 @@ from datasets.pet import PET, PETProcessor
 from datasets.transforms import make_transforms, compute_statistics
 
 from utils.logging import get_rich_logger
+from utils.gpu import set_gpu
 
 
 def freeze_bn(module):
@@ -62,7 +63,7 @@ def main():
 
     config.task = config.finetune_data_type
 
-    os.environ['CUDA_VISIBLE_DEVICES'] = ','.join([str(gpu) for gpu in config.gpus])
+    set_gpu(config)
     num_gpus_per_node = len(config.gpus)
     world_size = config.num_nodes * num_gpus_per_node
     distributed = world_size > 1

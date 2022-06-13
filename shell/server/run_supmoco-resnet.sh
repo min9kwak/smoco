@@ -21,13 +21,12 @@ PROJECTOR_DIM=128
 NUM_NEGATIVES=1024
 KEY_MOMENTUM=0.995
 
-ALPHAS="1.0, 1.0"
-ALPHAS_MIN="1.0, 0.0"
-ALPHAS_DECAY_END="-1, -1"
+ALPHAS="1.0,1.0"
+ALPHAS_MIN="1.0,0.0"
+ALPHAS_DECAY_END="-1,-1"
 
-for ALPHAS in "1.0, 1.0" "1.0, 0.5", "1.0, 2.0"
+for ALPHAS in "1.0,1.0" "1.0,0.5", "1.0,2.0"
 do
-	for ALPHAS_DECAY_END in "-1, -1" "-1, 20"
 	do
 		python ./run_supmoco.py \
 		--gpus $GPUS \
