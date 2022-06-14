@@ -4,14 +4,31 @@ import torch
 from torch.utils.data import DataLoader
 from monai.transforms import (
     Compose, AddChannel, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom,
-    NormalizeIntensity, RandGaussianNoise
+    NormalizeIntensity, RandGaussianNoise, Transform
 )
 from torchvision.transforms import ConvertImageDtype, Normalize
+from monai.utils.enums import TransformBackends
+
+
+class MinMax(Transform):
+
+    backend = [TransformBackends.TORCH, TransformBackends.NUMPY]
+
+    def __init__(self, xmin, xmax):
+        self.xmin = xmin
+        self.xmax = xmax
+
+    def __call__(self, img):
+        """
+        Apply the transform to `img`.
+        """
+        return (img - self.xmin) / (self.xmax - self.xmin)
 
 
 def make_transforms(image_size: int = 96,
                     intensity: str = 'normalize',
                     mean_std: tuple = (None, None),
+                    min_max: tuple = (None, None),
                     rotate: bool = True,
                     flip: bool = True,
                     zoom: bool = True,
@@ -29,6 +46,9 @@ def make_transforms(image_size: int = 96,
     elif intensity == 'normalize':
         assert all(mean_std)
         base_transform.insert(1, Normalize(*mean_std))
+    elif intensity == 'minmax':
+        assert all(min_max)
+        base_transform.insert(1, MinMax(*min_max))
     else:
         raise NotImplementedError
 

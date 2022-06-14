@@ -151,26 +151,23 @@ if __name__ == '__main__':
     processor = MRIProcessor(root='D:/data/ADNI',
                              data_info='labels/data_info.csv',
                              mci_only=False,
-                             segment='left_hippocampus',
+                             segment='global',
                              random_state=2022)
     datasets = processor.process(train_size=0.9)
 
     from torch.utils.data import Dataset, DataLoader
 
-    train_set = MRI(dataset=datasets['train'], pin_memory=False, transform=None)
-    train_loader = DataLoader(train_set)
-
-    for batch in train_loader:
-        image = batch['x']
-        image = image.squeeze().numpy()
-
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-
-        fig, axs = plt.subplots(1, 3, figsize=(24, 8))
-        sns.heatmap(image[20, :, :], cmap='binary', ax=axs[0], vmax=2)
-        sns.heatmap(image[:, 48, :], cmap='binary', ax=axs[1], vmax=2)
-        sns.heatmap(image[:, :, 30], cmap='binary', ax=axs[2], vmax=2)
-        plt.tight_layout()
-        plt.show()
-        break
+    # get the maximum value
+    m, M = +1000, -1000
+    import tqdm
+    for key in datasets.keys():
+        print(key)
+        dset = MRI(dataset=datasets[key], pin_memory=False, transform=None)
+        loader = DataLoader(dataset=dset, batch_size=8, drop_last=False)
+        for sample in tqdm.tqdm(loader):
+            x = sample['x']
+            m_, M_ = x.min(), x.max()
+            if m_ < m:
+                m = m_
+            if M_ > M:
+                M = M_

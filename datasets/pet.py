@@ -148,7 +148,7 @@ if __name__ == '__main__':
     processor = PETProcessor(root='D:/data/ADNI',
                              data_info='labels/data_info.csv',
                              mci_only=False,
-                             segment='hippocampus',
+                             segment='global',
                              random_state=2022)
     datasets = processor.process(train_size=0.9)
 

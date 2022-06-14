@@ -152,12 +152,21 @@ def main_worker(local_rank: int, config: object):
 
     if config.intensity == 'normalize':
         mean_std = compute_statistics(DATA=DATA, normalize_set=datasets['train'])
+        min_max = (None, None)
+    elif config.intensity == 'minmax':
+        mean_std = (None, None)
+        if config.data_type == 'pet':
+            min_max = (-0.1658, +5.5918)
+        elif config.data_type == 'mri':
+            min_max = (0.0, 255.0)
     else:
         mean_std = (None, None)
+        min_max = (None, None)
 
     train_transform, test_transform = make_transforms(image_size=config.image_size,
                                                       intensity=config.intensity,
                                                       mean_std=mean_std,
+                                                      min_max=min_max,
                                                       rotate=config.rotate,
                                                       flip=config.flip,
                                                       zoom=config.zoom,
