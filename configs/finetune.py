@@ -139,7 +139,6 @@ class FinetuneConfig(object):
         """Returns an `argparse.ArgumentParser` instance containing logging-related arguments."""
         parser = argparse.ArgumentParser("Finetune", add_help=False)
         parser.add_argument('--pretrained_dir', type=str, default=None, help='Path to pretrained model file (.pt).')
-        parser.add_argument('--finetune_data_type', type=str, choices=('mri', 'pet', 'multi'), required=True)
         parser.add_argument('--freeze', action='store_true', help='Freeze weights of CNN backbone.')
         parser.add_argument('--freeze_bn', action='store_true', help='Freeze BN weights of CNN backbone.')
         parser.add_argument('--balance', action='store_true', help='apply class balance weight')

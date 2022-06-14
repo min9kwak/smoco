@@ -56,12 +56,17 @@ def main():
         # model_parser
         'backbone_type', 'init_features', 'growth_rate', 'block_config', 'bn_size', 'dropout_rate',
         'arch', 'no_max_pool',
+        # moco / supmoco
+        'alphas',
+        # others
+        'task'
     ]
 
     for name in pretrained_config_names:
-        setattr(config, name, pretrained_config[name])
+        if name in pretrained_config.keys():
+            setattr(config, name, pretrained_config[name])
 
-    config.task = config.finetune_data_type
+    config.task = config.task + '_finetune'
 
     set_gpu(config)
     num_gpus_per_node = len(config.gpus)
@@ -99,14 +104,17 @@ def main_worker(local_rank: int, config: object):
     config.batch_size = config.batch_size // config.world_size
     config.num_workers = config.num_workers // config.num_gpus_per_node
 
-    logfile = os.path.join(config.checkpoint_dir, 'main.log')
-    logger = get_rich_logger(logfile=logfile)
-    if config.enable_wandb:
-        wandb.init(
-            name=f'{config.backbone_type} : {config.hash}',
-            project=f'sttr-{config.data_type}-{config.segment}-finetune',
-            config=config.__dict__
-        )
+    if local_rank == 0:
+        logfile = os.path.join(config.checkpoint_dir, 'main.log')
+        logger = get_rich_logger(logfile=logfile)
+        if config.enable_wandb:
+            wandb.init(
+                name=f'{config.backbone_type} : {config.hash}',
+                project=f'sttr-{config.data_type}-{config.segment}-finetune',
+                config=config.__dict__
+            )
+    else:
+        logger = None
 
     # Networks
     if config.backbone_type == 'densenet':
@@ -145,10 +153,10 @@ def main_worker(local_rank: int, config: object):
     # classifier = MLPClassifier(in_channels=out_dim, num_classes=2, activation=activation)
 
     # load finetune data
-    if config.finetune_data_type == 'mri':
+    if config.data_type == 'mri':
         PROCESSOR = MRIProcessor
         DATA = MRI
-    elif config.finetune_data_type == 'pet':
+    elif config.data_type == 'pet':
         PROCESSOR = PETProcessor
         DATA = PET
     else:
@@ -167,6 +175,7 @@ def main_worker(local_rank: int, config: object):
     else:
         mean_std = (None, None)
 
+    # TODO: check using finetune transform... only rotate and flip?
     train_transform, test_transform = make_transforms(image_size=config.image_size,
                                                       intensity=config.intensity,
                                                       mean_std=mean_std,
