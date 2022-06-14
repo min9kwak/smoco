@@ -2,15 +2,16 @@
 # D:/Dropbox/Data
 echo "Experiments Started"
 SERVER=dgx
-GPUS=0
+GPUS=2
 
 EPOCHS=100
 OPTIMIZER=sgd
 LEARNING_RATE=0.03
 
 PRETRAINED_FILE_PRE="checkpoints/pet-moco-global/resnet/"
+HASH="2022-06-11_15-53-34"
 
-for HASH in "2021-10-27_12-57-58" "2021-10-27_12-57-58" "2021-10-27_12-57-58"
+for LEARNING_RATE in 0.03 0.01
 do
     PRETRAINED_DIR="${PRETRAINED_FILE_PRE}${HASH}"
 

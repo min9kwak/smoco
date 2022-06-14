@@ -56,6 +56,8 @@ def main():
         # model_parser
         'backbone_type', 'init_features', 'growth_rate', 'block_config', 'bn_size', 'dropout_rate',
         'arch', 'no_max_pool',
+        # train
+        'batch_size',
         # moco / supmoco
         'alphas',
         # others
