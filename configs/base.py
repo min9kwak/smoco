@@ -130,7 +130,7 @@ class ConfigBase(object):
         parser.add_argument('--pin_memory', action='store_true')
         parser.add_argument('--random_state', type=int, default=2022)
 
-        parser.add_argument('--intensity', type=str, choices=('scale', 'normalize'))
+        parser.add_argument('--intensity', type=str, choices=('scale', 'normalize', 'minmax'))
         parser.add_argument('--rotate', action='store_true')
         parser.add_argument('--flip', action='store_true')
         parser.add_argument('--zoom', action='store_true')

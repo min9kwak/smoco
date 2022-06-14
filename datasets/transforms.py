@@ -1,4 +1,5 @@
 import time
+import numpy as np
 
 import torch
 from torch.utils.data import DataLoader
@@ -8,21 +9,26 @@ from monai.transforms import (
 )
 from torchvision.transforms import ConvertImageDtype, Normalize
 from monai.utils.enums import TransformBackends
+from monai.config import DtypeLike
+from monai.utils import convert_data_type
 
 
 class MinMax(Transform):
 
     backend = [TransformBackends.TORCH, TransformBackends.NUMPY]
 
-    def __init__(self, xmin, xmax):
+    def __init__(self, xmin, xmax, dtype: DtypeLike = np.float32):
         self.xmin = xmin
         self.xmax = xmax
+        self.dtype = dtype
 
     def __call__(self, img):
         """
         Apply the transform to `img`.
         """
-        return (img - self.xmin) / (self.xmax - self.xmin)
+        ret = (img - self.xmin) / (self.xmax - self.xmin)
+        ret, *_ = convert_data_type(ret, dtype=self.dtype or img.dtype)
+        return ret
 
 
 def make_transforms(image_size: int = 96,
