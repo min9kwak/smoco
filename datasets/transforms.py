@@ -73,6 +73,8 @@ def make_transforms(image_size: int = 96,
     if flip:
         train_transform.append(RandFlip(prob=prob))
     if affine:
+        import warnings
+        warnings.filterwarnings("ignore")
         train_transform.append(RandAffine(rotate_range=(-2.0, 2.0),
                                           translate_range=(-4.0, 4.0),
                                           scale_range=(0.95, 1.05),
