@@ -152,6 +152,8 @@ class Classification(object):
                 wandb.log({'epoch': epoch}, commit=False)
                 if self.scheduler is not None:
                     wandb.log({'lr': self.scheduler.get_last_lr()[0]}, commit=False)
+                else:
+                    wandb.log({'lr': self.optimizer.param_groups[0]['lr']}, commit=False)
                 wandb.log(epoch_history)
 
             # Save best model checkpoint

@@ -263,6 +263,8 @@ class MoCo(object):
                 wandb.log(history, commit=False)
                 if self.scheduler is not None:
                     wandb.log({'lr': self.scheduler.get_last_lr()[0]}, commit=False)
+                else:
+                    wandb.log({'lr': self.optimizer.param_groups[0]['lr']}, commit=False)
                 if knn_scores is not None:
                     wandb.log(knn_scores)
 
