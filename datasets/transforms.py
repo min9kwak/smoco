@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from monai.transforms import (
-    Compose, AddChannel, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom,
+    Compose, AddChannel, RandRotate, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom,
     NormalizeIntensity, RandGaussianNoise, Transform
 )
 from torchvision.transforms import ConvertImageDtype, Normalize
@@ -61,11 +61,11 @@ def make_transforms(image_size: int = 96,
     train_transform, test_transform = base_transform.copy(), base_transform.copy()
 
     if rotate:
-        train_transform.append(RandRotate90(prob=prob))
+        train_transform.append(RandRotate(range_x=2.0, range_y=2.0, range_z=2.0, prob=prob))
     if flip:
         train_transform.append(RandFlip(prob=prob))
     if zoom:
-        train_transform.append(RandZoom(prob=prob))
+        train_transform.append(RandZoom(prob=prob, min_zoom=0.95, max_zoom=1.05))
     if blur:
         train_transform.append(RandGaussianNoise(prob=prob, std=blur_std))
 
