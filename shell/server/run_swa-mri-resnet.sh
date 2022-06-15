@@ -32,7 +32,6 @@ do
 		--image_size 96 \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
-		--rotate \
 		--flip \
 		--prob 0.2 \
 		--backbone_type $BACKBONE_TYPE \
