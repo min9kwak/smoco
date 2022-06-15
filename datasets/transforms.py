@@ -5,7 +5,7 @@ import torch
 from torch.utils.data import DataLoader
 from monai.transforms import (
     Compose, AddChannel, RandRotate, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom, RandAffine,
-    RandSpatialCrop, NormalizeIntensity, RandGaussianNoise, Transform
+    RandSpatialCrop, NormalizeIntensity, RandGaussianNoise, Transform, CenterSpatialCrop
 )
 from torchvision.transforms import ConvertImageDtype, Normalize
 from monai.utils.enums import TransformBackends
@@ -69,7 +69,8 @@ def make_transforms(image_size: int = 96,
             cropsize = 36
         else:
             cropsize = int(0.75 * image_size)
-        train_transform.append(RandSpatialCrop(roi_size=(cropsize, cropsize, cropsize), random_size=False))
+        # train_transform.append(RandSpatialCrop(roi_size=(cropsize, cropsize, cropsize), random_size=False))
+        train_transform.append(CenterSpatialCrop(roi_size=(cropsize, cropsize, cropsize)))
     if flip:
         train_transform.append(RandFlip(prob=prob))
     if affine:
