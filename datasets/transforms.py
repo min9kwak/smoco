@@ -31,6 +31,18 @@ class MinMax(Transform):
         return ret
 
 
+def return_cropsize(image_size):
+    if image_size == 98:
+        cropsize = 72
+    elif image_size == 32:
+        cropsize = 24
+    elif image_size == 48:
+        cropsize = 36
+    else:
+        cropsize = int(0.75 * image_size)
+    return cropsize
+
+
 def make_transforms(image_size: int = 96,
                     intensity: str = 'normalize',
                     mean_std: tuple = (None, None),
@@ -61,16 +73,10 @@ def make_transforms(image_size: int = 96,
     train_transform, test_transform = base_transform.copy(), base_transform.copy()
 
     if crop:
-        if image_size == 98:
-            cropsize = 72
-        elif image_size == 32:
-            cropsize = 24
-        elif image_size == 48:
-            cropsize = 36
-        else:
-            cropsize = int(0.75 * image_size)
+        cropsize = return_cropsize(image_size)
         # train_transform.append(RandSpatialCrop(roi_size=(cropsize, cropsize, cropsize), random_size=False))
         train_transform.append(CenterSpatialCrop(roi_size=(cropsize, cropsize, cropsize)))
+
     if flip:
         train_transform.append(RandFlip(prob=prob))
     if affine:

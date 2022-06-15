@@ -21,7 +21,7 @@ from models.head.classifier import LinearClassifier
 from datasets.mri import MRI, MRIProcessor
 from datasets.pet import PET, PETProcessor
 
-from datasets.transforms import make_transforms, compute_statistics
+from datasets.transforms import make_transforms, compute_statistics, return_cropsize
 
 from utils.logging import get_rich_logger
 from utils.gpu import set_gpu
@@ -105,7 +105,11 @@ def main_worker(local_rank: int, config: object):
     if config.small_kernel:
         backbone._fix_first_conv()
 
-    out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
+    if config.crop:
+        cropsize = return_cropsize(config.image_size)
+        out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=cropsize)
+    else:
+        out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
     classifier = LinearClassifier(in_channels=out_dim, num_classes=2, activation=activation)
 
     # load data
