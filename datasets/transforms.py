@@ -76,6 +76,7 @@ def make_transforms(image_size: int = 96,
         cropsize = return_cropsize(image_size)
         # train_transform.append(RandSpatialCrop(roi_size=(cropsize, cropsize, cropsize), random_size=False))
         train_transform.append(CenterSpatialCrop(roi_size=(cropsize, cropsize, cropsize)))
+        test_transform.append(CenterSpatialCrop(roi_size=(cropsize, cropsize, cropsize)))
 
     if flip:
         train_transform.append(RandFlip(prob=prob))
