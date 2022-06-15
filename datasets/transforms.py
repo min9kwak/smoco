@@ -4,8 +4,8 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from monai.transforms import (
-    Compose, AddChannel, RandRotate, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom,
-    NormalizeIntensity, RandGaussianNoise, Transform
+    Compose, AddChannel, RandRotate, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom, RandAffine,
+    RandSpatialCrop, NormalizeIntensity, RandGaussianNoise, Transform
 )
 from torchvision.transforms import ConvertImageDtype, Normalize
 from monai.utils.enums import TransformBackends
@@ -35,9 +35,9 @@ def make_transforms(image_size: int = 96,
                     intensity: str = 'normalize',
                     mean_std: tuple = (None, None),
                     min_max: tuple = (None, None),
-                    rotate: bool = True,
+                    crop: bool = True,
                     flip: bool = True,
-                    zoom: bool = True,
+                    affine: bool = True,
                     blur: bool = True,
                     blur_std: float = 0.1,
                     prob: float = 0.2):
@@ -60,12 +60,23 @@ def make_transforms(image_size: int = 96,
 
     train_transform, test_transform = base_transform.copy(), base_transform.copy()
 
-    if rotate:
-        train_transform.append(RandRotate(range_x=2.0, range_y=2.0, range_z=2.0, prob=prob))
+    if crop:
+        if image_size == 98:
+            cropsize = 72
+        elif image_size == 32:
+            cropsize = 24
+        elif image_size == 48:
+            cropsize = 36
+        else:
+            cropsize = int(0.75 * image_size)
+        train_transform.append(RandSpatialCrop(roi_size=(cropsize, cropsize, cropsize), random_size=False))
     if flip:
         train_transform.append(RandFlip(prob=prob))
-    if zoom:
-        train_transform.append(RandZoom(prob=prob, min_zoom=0.95, max_zoom=1.05))
+    if affine:
+        train_transform.append(RandAffine(rotate_range=(-2.0, 2.0),
+                                          translate_range=(-4.0, 4.0),
+                                          scale_range=(0.95, 1.05),
+                                          prob=prob))
     if blur:
         train_transform.append(RandGaussianNoise(prob=prob, std=blur_std))
 

@@ -38,10 +38,11 @@ do
 		--image_size $IMAGE_SIZE \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
-		--rotate \
+		--crop \
 		--flip \
+		--affine \
 		--blur \
-		--blur_std 0.1 \
+		--blur_std 0.05 \
 		--prob 0.5 \
 		--backbone_type $BACKBONE_TYPE \
 		--init_features $INIT_FEATURES \

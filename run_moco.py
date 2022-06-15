@@ -163,9 +163,9 @@ def main_worker(local_rank: int, config: object):
                                                       intensity=config.intensity,
                                                       mean_std=mean_std,
                                                       min_max=min_max,
-                                                      rotate=config.rotate,
+                                                      crop=config.crop,
                                                       flip=config.flip,
-                                                      zoom=config.zoom,
+                                                      affine=config.affine,
                                                       blur=config.blur,
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)

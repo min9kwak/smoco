@@ -130,10 +130,11 @@ class ConfigBase(object):
         parser.add_argument('--pin_memory', action='store_true')
         parser.add_argument('--random_state', type=int, default=2022)
 
+        # augmentation
         parser.add_argument('--intensity', type=str, choices=('scale', 'normalize', 'minmax'))
-        parser.add_argument('--rotate', action='store_true')
+        parser.add_argument('--crop', action='store_true')
         parser.add_argument('--flip', action='store_true')
-        parser.add_argument('--zoom', action='store_true')
+        parser.add_argument('--affine', action='store_true')
         parser.add_argument('--blur', action='store_true')
         parser.add_argument('--blur_std', type=float)
         parser.add_argument('--prob', type=float, default=0.5)

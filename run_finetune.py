@@ -52,7 +52,7 @@ def main():
     pretrained_config_names = [
         # data_parser
         'data_type', 'root', 'data_info', 'mci_only', 'train_size', 'segment', 'image_size', 'small_kernel',
-        'pin_memory', 'random_state', 'intensity', 'rotate', 'flip', 'zoom', 'blur', 'blur_std', 'prob',
+        'pin_memory', 'random_state', 'intensity', 'crop', 'flip', 'affine', 'blur', 'blur_std', 'prob',
         # model_parser
         'backbone_type', 'init_features', 'growth_rate', 'block_config', 'bn_size', 'dropout_rate',
         'arch', 'no_max_pool',
@@ -190,9 +190,9 @@ def main_worker(local_rank: int, config: object):
                                                       intensity=config.intensity,
                                                       mean_std=mean_std,
                                                       min_max=min_max,
-                                                      rotate=config.rotate,
+                                                      crop=config.crop,
                                                       flip=config.flip,
-                                                      zoom=config.zoom,
+                                                      affine=config.affine,
                                                       blur=config.blur,
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)

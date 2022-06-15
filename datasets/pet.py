@@ -145,6 +145,7 @@ class PETMoCo(PETBase):
 
 if __name__ == '__main__':
 
+    from datasets.pet import PET, PETProcessor
     processor = PETProcessor(root='D:/data/ADNI',
                              data_info='labels/data_info.csv',
                              mci_only=False,
@@ -153,7 +154,17 @@ if __name__ == '__main__':
     datasets = processor.process(train_size=0.9)
 
     from torch.utils.data import Dataset, DataLoader
-    train_set = PET(dataset=datasets['train'], pin_memory=False, transform=None)
+    from datasets.transforms import make_transforms
+    train_transform, test_transform = make_transforms(image_size=98,
+                                                      intensity='minmax',
+                                                      min_max=(-0.1658, +5.5918),
+                                                      crop=True,
+                                                      flip=True,
+                                                      affine=True,
+                                                      blur=False,
+                                                      prob=1.0)
+
+    train_set = PET(dataset=datasets['train'], pin_memory=False, transform=train_transform)
     train_loader = DataLoader(train_set)
 
     for batch in train_loader:
@@ -162,11 +173,12 @@ if __name__ == '__main__':
 
         import matplotlib.pyplot as plt
         import seaborn as sns
+        s = image.shape[0]
 
         fig, axs = plt.subplots(1, 3, figsize=(24, 8))
-        sns.heatmap(image[48, :, :], cmap='binary', ax=axs[0], vmax=2)
-        sns.heatmap(image[:, 48, :], cmap='binary', ax=axs[1], vmax=2)
-        sns.heatmap(image[:, :, 48], cmap='binary', ax=axs[2], vmax=2)
+        sns.heatmap(image[s//2, :, :], cmap='binary', ax=axs[0], vmax=1)
+        sns.heatmap(image[:, s//2, :], cmap='binary', ax=axs[1], vmax=1)
+        sns.heatmap(image[:, :, s//2], cmap='binary', ax=axs[2], vmax=1)
         plt.tight_layout()
         plt.show()
         break
