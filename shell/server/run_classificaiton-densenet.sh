@@ -9,6 +9,7 @@ RANDOM_STATE=2021
 
 INTENSITY=scale
 
+OPTIMIZER=adamw
 BATCH_SIZE=16
 EPOCHS=100
 
@@ -16,10 +17,10 @@ BACKBONE_TYPE=densenet
 INIT_FEATURES=64
 GROWTH_RATE=32
 BLOCK_CONFIG="6,12,24,16"
-DROPOUT_RATE=0.0
+DROPOUT_RATE=0.01
 
 
-for RANDOM_STATE in 2021 2022 2023
+for RANDOM_STATE in 2021 2023 2025
 do
 	for LEARNING_RATE in 0.0001
 	do
@@ -48,7 +49,7 @@ do
 		--dropout_rate $DROPOUT_RATE \
 		--epochs $EPOCHS \
 		--batch_size $BATCH_SIZE \
-		--optimizer adamw \
+		--optimizer $OPTIMIZER \
 		--learning_rate $LEARNING_RATE \
 		--weight_decay 0.0001 \
 		--cosine_warmup 0 \

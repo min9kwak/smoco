@@ -140,7 +140,7 @@ if __name__ == '__main__':
     import torch
 
     network = DenseNetBackbone(in_channels=1,
-                               init_features=32,
+                               init_features=64,
                                growth_rate=32,
                                block_config=(6, 12, 24, 16),
                                bn_size=4,

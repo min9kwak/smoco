@@ -9,6 +9,7 @@ RANDOM_STATE=2021
 
 INTENSITY=scale
 
+OPTIMIZER=adamw
 BATCH_SIZE=16
 EPOCHS=100
 
@@ -22,9 +23,9 @@ PROJECTOR_DIM=128
 NUM_NEGATIVES=1024
 KEY_MOMENTUM=0.995
 
-for RANDOM_STATE in 2021 2022 2023
+for RANDOM_STATE in 2021 2023 2025
 do
-	for LEARNING_RATE in 0.01
+	for LEARNING_RATE in 0.0001
 	do
 		python ./run_moco.py \
 		--gpus $GPUS \
@@ -51,13 +52,13 @@ do
 		--dropout_rate $DROPOUT_RATE \
 		--epochs $EPOCHS \
 		--batch_size $BATCH_SIZE \
-		--optimizer sgd \
+		--optimizer $OPTIMIZER \
 		--learning_rate $LEARNING_RATE \
 		--weight_decay 0.0001 \
 		--cosine_warmup 0 \
 		--cosine_cycles 1 \
 		--cosine_min_lr 0.0 \
-		--save_every 200 \
+		--save_every 1000 \
 		--enable_wandb \
 		--projector_dim $PROJECTOR_DIM \
 		--num_negatives $NUM_NEGATIVES \

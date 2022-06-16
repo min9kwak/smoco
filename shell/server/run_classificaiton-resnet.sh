@@ -9,6 +9,7 @@ RANDOM_STATE=2021
 
 INTENSITY=scale
 
+OPTIMIZER=sgd
 BATCH_SIZE=16
 EPOCHS=100
 
@@ -16,9 +17,9 @@ BACKBONE_TYPE=resnet
 ARCH=50
 
 
-for RANDOM_STATE in 2021 2022 2023
+for RANDOM_STATE in 2021 2023 2025
 do
-	for LEARNING_RATE in 0.0001
+	for LEARNING_RATE in 0.03
 	do
 		python ./run_classification.py \
 		--gpus $GPUS \
