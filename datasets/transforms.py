@@ -4,7 +4,7 @@ import numpy as np
 import torch
 from torch.utils.data import DataLoader
 from monai.transforms import (
-    Compose, AddChannel, RandRotate, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom, RandAffine,
+    Compose, AddChannel, RandRotate, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom, RandAffine,
     RandSpatialCrop, NormalizeIntensity, RandGaussianNoise, Transform, CenterSpatialCrop
 )
 from torchvision.transforms import ConvertImageDtype, Normalize
@@ -48,6 +48,7 @@ def make_transforms(image_size: int = 96,
                     mean_std: tuple = (None, None),
                     min_max: tuple = (None, None),
                     crop: bool = True,
+                    rotate: bool = True,
                     flip: bool = True,
                     affine: bool = True,
                     blur: bool = True,
@@ -77,6 +78,9 @@ def make_transforms(image_size: int = 96,
         # train_transform.append(RandSpatialCrop(roi_size=(cropsize, cropsize, cropsize), random_size=False))
         train_transform.append(CenterSpatialCrop(roi_size=(cropsize, cropsize, cropsize)))
         test_transform.append(CenterSpatialCrop(roi_size=(cropsize, cropsize, cropsize)))
+
+    if rotate:
+        train_transform.append(RandRotate90(prob=prob))
 
     if flip:
         train_transform.append(RandFlip(prob=prob))

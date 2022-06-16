@@ -192,6 +192,34 @@ for i, row in summary.iterrows():
 
 # TODO: add clinical/demographic features
 demo_feature_names = ['']
+
+gender = mri_demo['PTGENDER (1=male, 2=female)'] - 1
+mri_demo['gender'] = gender
+mri_demo['age'] = mri_demo['Age']
+mri_demo['edu'] = mri_demo['PTEDUCAT']
+
+for rid in set(mri_demo.RID):
+    records = mri_demo.loc[mri_demo.RID == rid].copy()
+    idx = records.index
+
+    any(records['APOE Status'].isna())
+    records['APOE Status']
+
+    any(records['MMSCORE'].isna())
+
+    if any(records['CDGLOBAL'].isna()):
+        cdglobal = records['CDGLOBAL'].fillna(method='ffill')
+        if any(cdglobal.isna()):
+            cdglobal = cdglobal.fillna(method='bfill')
+        records.loc[idx, 'CDGLOBAL'] = cdglobal
+
+    if any(records['SUM BOXES'].isna()):
+        sum_boxes = records['SUM BOXES'].fillna(method='ffill')
+        if any(sum_boxes.isna()):
+            sum_boxes = sum_boxes.fillna(method='bfill')
+        records.loc[idx, 'SUM BOXES'] = sum_boxes
+
+
 summary = pd.merge(summary, mri_demo[['RID', 'MONTH'] + demo_feature_names],
                    how='left', on=['RID', 'MONTH'])
 
@@ -200,3 +228,9 @@ summary.to_csv(os.path.join(DATA_DIR, "labels/data_info.csv"), index=False)
 print('# non-converters: ', sum(summary.Conv == 0))
 print('#     converters: ', sum(summary.Conv == 1))
 print('#          total: ', sum(summary.Conv != -1))
+
+
+
+d = summary.loc[~summary.PET.isna()]
+d = d.loc[d.MCI == 1]
+np.bincount(d.Conv + 1)
