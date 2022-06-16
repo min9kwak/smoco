@@ -21,7 +21,7 @@ class PETProcessor(object):
                  random_state: int = 2022):
 
         self.root = root
-        self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'MONTH': int, 'Conv': int})
+        self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'Conv': int})
         self.data_info = self.data_info[~self.data_info.PET.isna()]
         if mci_only:
             self.data_info = self.data_info.loc[self.data_info.MCI == 1]
@@ -145,10 +145,9 @@ class PETMoCo(PETBase):
 
 if __name__ == '__main__':
 
-    from datasets.pet import PET, PETProcessor
     processor = PETProcessor(root='D:/data/ADNI',
                              data_info='labels/data_info.csv',
-                             mci_only=False,
+                             mci_only=True,
                              segment='global',
                              random_state=2022)
     datasets = processor.process(train_size=0.9)

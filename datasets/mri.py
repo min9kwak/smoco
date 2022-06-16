@@ -20,7 +20,7 @@ class MRIProcessor(object):
                  random_state: int = 2022):
 
         self.root = root
-        self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'MONTH': int, 'Conv': int})
+        self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'Conv': int})
         if mci_only:
             self.data_info = self.data_info.loc[self.data_info.MCI == 1]
         assert segment in ['global', 'left_hippocampus', 'right_hippocampus', 'hippocampus']
