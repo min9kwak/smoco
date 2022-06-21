@@ -141,7 +141,7 @@ def main_worker(local_rank: int, config: object):
     mean_std, min_max = (None, None), (None, None)
     if config.intensity is None:
         pass
-    elif config.intesntiy == 'scale':
+    elif config.intensity == 'scale':
         pass
     elif config.intensity == 'minmax':
         with open(os.path.join(config.root, 'labels/minmax.pkl'), 'rb') as fb:
