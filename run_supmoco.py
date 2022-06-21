@@ -20,8 +20,8 @@ from models.backbone.resnet import build_resnet_backbone
 from models.head.projector import MLPHead
 from layers.batchnorm import SplitBatchNorm3d
 
-from datasets.mri import MRI, MRIMoCo, MRIProcessor
-from datasets.pet import PET, PETMoCo, PETProcessor
+from datasets.depr.mri import MRI, MRIMoCo, MRIProcessor
+from datasets.depr.pet import PET, PETMoCo, PETProcessor
 
 from datasets.transforms import make_transforms, compute_statistics
 

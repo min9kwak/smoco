@@ -19,8 +19,8 @@ from models.backbone.densenet import DenseNetBackbone
 from models.backbone.resnet import build_resnet_backbone
 from models.head.classifier import LinearClassifier
 
-from datasets.mri import MRI, MRIProcessor
-from datasets.pet import PET, PETProcessor
+from datasets.depr.mri import MRI, MRIProcessor
+from datasets.depr.pet import PET, PETProcessor
 from datasets.transforms import make_transforms, compute_statistics, return_cropsize
 
 from utils.logging import get_rich_logger

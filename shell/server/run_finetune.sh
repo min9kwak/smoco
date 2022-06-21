@@ -1,14 +1,14 @@
 # /raidWorkspace/mingu/Data
 # D:/Dropbox/Data
 echo "Experiments Started"
-SERVER=dgx
-GPUS=3
+SERVER=workstation2
+GPUS=00
 
-EPOCHS=50
+EPOCHS=100
 OPTIMIZER=sgd
 LEARNING_RATE=0.03
 
-PRETRAINED_FILE_PRE="checkpoints/pet-moco-global/resnet/"
+PRETRAINED_FILE_PRE="checkpoints/pet-moco/resnet/"
 HASH="2022-06-11_15-53-34"
 
 for HASH in "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34"

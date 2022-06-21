@@ -31,23 +31,12 @@ class MinMax(Transform):
         return ret
 
 
-def return_cropsize(image_size):
-    if image_size == 98:
-        cropsize = 72
-    elif image_size == 32:
-        cropsize = 24
-    elif image_size == 48:
-        cropsize = 36
-    else:
-        cropsize = int(0.75 * image_size)
-    return cropsize
-
-
-def make_transforms(image_size: int = 96,
-                    intensity: str = 'normalize',
+def make_transforms(image_size: int = 72,
+                    intensity: str = 'scale',
                     mean_std: tuple = (None, None),
                     min_max: tuple = (None, None),
                     crop: bool = True,
+                    crop_size: int = None,
                     rotate: bool = True,
                     flip: bool = True,
                     affine: bool = True,
@@ -65,6 +54,7 @@ def make_transforms(image_size: int = 96,
     elif intensity == 'normalize':
         assert all(mean_std)
         base_transform.insert(1, Normalize(*mean_std))
+        raise NotImplementedError
     elif intensity == 'minmax':
         assert all(min_max)
         base_transform.insert(1, MinMax(*min_max))
@@ -74,16 +64,16 @@ def make_transforms(image_size: int = 96,
     train_transform, test_transform = base_transform.copy(), base_transform.copy()
 
     if crop:
-        cropsize = return_cropsize(image_size)
         # train_transform.append(RandSpatialCrop(roi_size=(cropsize, cropsize, cropsize), random_size=False))
-        train_transform.append(CenterSpatialCrop(roi_size=(cropsize, cropsize, cropsize)))
-        test_transform.append(CenterSpatialCrop(roi_size=(cropsize, cropsize, cropsize)))
+        train_transform.append(CenterSpatialCrop(roi_size=(crop_size, crop_size, crop_size)))
+        test_transform.append(CenterSpatialCrop(roi_size=(crop_size, crop_size, crop_size)))
 
     if rotate:
         train_transform.append(RandRotate90(prob=prob))
 
     if flip:
         train_transform.append(RandFlip(prob=prob))
+
     if affine:
         import warnings
         warnings.filterwarnings("ignore")
@@ -91,6 +81,7 @@ def make_transforms(image_size: int = 96,
                                           translate_range=(-4.0, 4.0),
                                           scale_range=(0.95, 1.05),
                                           prob=prob))
+
     if blur:
         train_transform.append(RandGaussianNoise(prob=prob, std=blur_std))
 
@@ -112,6 +103,7 @@ def compute_statistics(DATA, normalize_set):
     count = 0
     first_moment, second_moment = torch.zeros(1), torch.zeros(1)
     for batch in normalize_loader:
+        # TODO: calculate non-zero values?
         x = batch['x'].float()
         b, _, h, d, w = x.shape
         num_pixels = b * h * d * w
@@ -132,4 +124,4 @@ def compute_statistics(DATA, normalize_set):
     std_ = std_.item()
     print(f'Mean and std values are computed in {time.time() - start_time:.2f} seconds')
 
-    return (mean_, std_)
+    return mean_, std_

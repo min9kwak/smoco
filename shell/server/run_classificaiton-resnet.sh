@@ -1,20 +1,22 @@
 echo "Experiments Started"
-SERVER=dgx
-GPUS=0
+SERVER=workstation2
+GPUS=00
 
 DATA_TYPE=pet
-SEGMENT=global
-IMAGE_SIZE=98
+N_SPLITS=10
+N_CV=0
+IMAGE_SIZE=72
 RANDOM_STATE=2021
 
 INTENSITY=scale
 
-OPTIMIZER=sgd
-BATCH_SIZE=16
 EPOCHS=100
+BATCH_SIZE=16
+OPTIMIZER=sgd
+LEARNING_RATE=0.03
 
 BACKBONE_TYPE=resnet
-ARCH=50
+ARCH=18
 
 
 for RANDOM_STATE in 2021 2023 2025
@@ -28,13 +30,13 @@ do
 		--root /raidWorkspace/mingu/Data/ADNI \
 		--data_info labels/data_info.csv \
 		--mci_only \
-		--train_size 0.9 \
-		--segment $SEGMENT \
+		--n_splits $N_SPLITS \
+		--n_cv $N_CV \
 		--image_size $IMAGE_SIZE \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
 		--flip \
-		--affine \
+		--rotate \
 		--blur \
 		--blur_std 0.05 \
 		--prob 0.5 \
@@ -48,7 +50,7 @@ do
 		--cosine_warmup 0 \
 		--cosine_cycles 1 \
 		--cosine_min_lr 0.0 \
-		--save_every 200 \
+		--save_every 1000 \
 		--enable_wandb \
 		--balance
 	done

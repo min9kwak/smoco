@@ -26,4 +26,3 @@ for brain_file in tqdm.tqdm(brain_files):
             brain_dims[i]['max'] = M
         if l > brain_dims[i]['len']:
             brain_dims[i]['len'] = l
-

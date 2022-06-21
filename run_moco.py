@@ -5,6 +5,7 @@ import sys
 import time
 import rich
 import numpy as np
+import pickle
 import wandb
 
 import torch
@@ -20,9 +21,7 @@ from models.backbone.resnet import build_resnet_backbone
 from models.head.projector import MLPHead
 from layers.batchnorm import SplitBatchNorm3d
 
-from datasets.mri import MRI, MRIMoCo, MRIProcessor
-from datasets.pet import PET, PETMoCo, PETProcessor
-
+from datasets.brain import BrainProcessor, Brain, BrainMoCo
 from datasets.transforms import make_transforms, compute_statistics
 
 from utils.logging import get_rich_logger
@@ -33,7 +32,7 @@ def main():
 
     config = MoCoConfig.parse_arguments()
 
-    config.task = config.data_type + f'-moco-{config.segment}'
+    config.task = config.data_type + f'-moco'
 
     set_gpu(config)
     num_gpus_per_node = len(config.gpus)
@@ -120,50 +119,43 @@ def main_worker(local_rank: int, config: object):
     if config.small_kernel:
         backbone._fix_first_conv()
 
-    out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
+    if config.crop:
+        out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.crop_size)
+    else:
+        out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
     projector = MLPHead(out_dim, config.projector_dim)
 
     if config.split_bn:
         backbone = SplitBatchNorm3d.convert_split_batchnorm(backbone)
 
     # load data
-    if config.data_type == 'mri':
-        PROCESSOR = MRIProcessor
-        DATAMoCo = MRIMoCo
-        DATA = MRI
-    elif config.data_type == 'pet':
-        PROCESSOR = PETProcessor
-        DATAMoCo = PETMoCo
-        DATA = PET
+    data_processor = BrainProcessor(root=config.root,
+                                    data_info=config.data_info,
+                                    data_type=config.data_type,
+                                    mci_only=config.mci_only,
+                                    random_state=config.random_state)
+    datasets = data_processor.process(n_splits=config.n_splits, n_cv=config.n_cv)
+
+    # intensity normalization
+    assert config.intensity in [None, 'scale', 'minmax']
+    mean_std, min_max = (None, None), (None, None)
+    if config.intensity is None:
+        pass
+    elif config.intesntiy == 'scale':
+        pass
+    elif config.intensity == 'minmax':
+        with open(os.path.join(config.root, 'labels/minmax.pkl'), 'rb') as fb:
+            minmax_stats = pickle.load(fb)
+            min_max = (minmax_stats[config.data_type]['min'], minmax_stats[config.data_type]['max'])
     else:
         raise NotImplementedError
-
-    data_processor = PROCESSOR(root=config.root,
-                               data_info=config.data_info,
-                               mci_only=config.mci_only,
-                               segment=config.segment,
-                               random_state=config.random_state)
-
-    datasets = data_processor.process(train_size=config.train_size)
-
-    if config.intensity == 'normalize':
-        mean_std = compute_statistics(DATA=DATA, normalize_set=datasets['train'])
-        min_max = (None, None)
-    elif config.intensity == 'minmax':
-        mean_std = (None, None)
-        if config.data_type == 'pet':
-            min_max = (-0.1658, +5.5918)
-        elif config.data_type == 'mri':
-            min_max = (0.0, 255.0)
-    else:
-        mean_std = (None, None)
-        min_max = (None, None)
 
     train_transform, test_transform = make_transforms(image_size=config.image_size,
                                                       intensity=config.intensity,
                                                       mean_std=mean_std,
                                                       min_max=min_max,
                                                       crop=config.crop,
+                                                      crop_size=config.crop_size,
                                                       rotate=config.rotate,
                                                       flip=config.flip,
                                                       affine=config.affine,
@@ -171,12 +163,13 @@ def main_worker(local_rank: int, config: object):
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 
-    train_set = {'path': datasets['train']['path'] + datasets['u_train']['path'],
+    train_set = {'mri': datasets['train']['mri'] + datasets['u_train']['mri'],
+                 'pet': datasets['train']['pet'] + datasets['u_train']['pet'],
                  'y': np.concatenate([datasets['train']['y'], datasets['u_train']['y']])}
-    train_set = DATAMoCo(dataset=train_set, pin_memory=config.pin_memory,
-                         query_transform=train_transform, key_transform=train_transform)
-    eval_set = DATA(dataset=datasets['train'], pin_memory=config.pin_memory, transform=test_transform)
-    test_set = DATA(dataset=datasets['test'], pin_memory=config.pin_memory, transform=test_transform)
+    train_set = BrainMoCo(dataset=train_set, data_type=config.data_type,
+                          query_transform=train_transform, key_transform=train_transform)
+    eval_set = Brain(dataset=datasets['train'], data_type=config.data_type, transform=test_transform)
+    test_set = Brain(dataset=datasets['test'], data_type=config.data_type, transform=test_transform)
 
     # Model (Task)
     model = MoCo(backbone=backbone,

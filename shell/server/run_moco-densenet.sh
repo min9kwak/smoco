@@ -1,23 +1,25 @@
 echo "Experiments Started"
-SERVER=dgx
-GPUS=0
+SERVER=workstation2
+GPUS=00
 
 DATA_TYPE=pet
-SEGMENT=global
-IMAGE_SIZE=98
+N_SPLITS=10
+N_CV=0
+IMAGE_SIZE=72
 RANDOM_STATE=2021
 
 INTENSITY=scale
 
-OPTIMIZER=adamw
-BATCH_SIZE=16
 EPOCHS=100
+BATCH_SIZE=16
+OPTIMIZER=adamw
+LEARNING_RATE=0.0001
 
 BACKBONE_TYPE=densenet
 INIT_FEATURES=64
 GROWTH_RATE=32
 BLOCK_CONFIG="6,12,24,16"
-DROPOUT_RATE=0.0
+DROPOUT_RATE=0.00
 
 PROJECTOR_DIM=128
 NUM_NEGATIVES=1024
@@ -34,13 +36,13 @@ do
 		--root /raidWorkspace/mingu/Data/ADNI \
 		--data_info labels/data_info.csv \
 		--mci_only \
-		--train_size 0.9 \
-		--segment $SEGMENT \
+		--n_splits $N_SPLITS \
+		--n_cv $N_CV \
 		--image_size $IMAGE_SIZE \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
 		--flip \
-		--affine \
+		--rotate \
 		--blur \
 		--blur_std 0.05 \
 		--prob 0.5 \

@@ -10,7 +10,7 @@ import wandb
 import torch
 import torch.nn as nn
 
-from datasets.mri import MRI, MRIProcessor
+from datasets.depr.mri import MRI, MRIProcessor
 
 from configs.depr.vit import VitUniConfig
 

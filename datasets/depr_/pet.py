@@ -1,30 +1,28 @@
 import os
-
-import torch
-import pandas as pd
-import numpy as np
 import pickle
+
+import numpy as np
+import torch
 import nibabel as nib
+import pandas as pd
 
 from torch.utils.data import Dataset
 from sklearn.model_selection import train_test_split
 from sklearn.utils import class_weight
 
 
-class MRIProcessor(object):
+class PETProcessor(object):
     def __init__(self,
                  root: str,
                  data_info: str,
                  mci_only: bool = False,
-                 segment: str = 'left_hippocampus',
                  random_state: int = 2022):
 
         self.root = root
-        self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'Conv': int})
+        self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'MONTH': int, 'Conv': int})
+        self.data_info = self.data_info[~self.data_info.PET.isna()]
         if mci_only:
             self.data_info = self.data_info.loc[self.data_info.MCI == 1]
-        assert segment in ['global', 'left_hippocampus', 'right_hippocampus', 'hippocampus']
-        self.segment = segment
 
         # remove abnormal MRI
         with open(os.path.join(root, 'labels/mri_abnormal.pkl'), 'rb') as fb:
@@ -46,31 +44,37 @@ class MRIProcessor(object):
         self.test_rids = test_rids
         self.u_data_info = self.u_data_info[~self.u_data_info['RID'].isin(test_rids)]
 
-        train_files = self.data_info[self.data_info['RID'].isin(train_rids)]['MRI'].tolist()
-        test_files = self.data_info[self.data_info['RID'].isin(test_rids)]['MRI'].tolist()
-        u_train_files = self.u_data_info['MRI'].tolist()
+        train_info = self.data_info[self.data_info['RID'].isin(train_rids)]
+        test_info = self.data_info[self.data_info['RID'].isin(test_rids)]
 
-        brain_train = [os.path.join(self.root, f'segment/FS7/{self.segment}', f'{f}.pkl') for f in train_files]
-        y_train = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in train_files])
+        train_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
+                       for _, row in train_info.iterrows()]
+        y_train = train_info['Conv'].values
 
         self.class_weight = class_weight.compute_class_weight(class_weight='balanced',
                                                               classes=np.unique(y_train),
                                                               y=y_train)
 
-        brain_test = [os.path.join(self.root, f'segment/FS7/{self.segment}', f'{f}.pkl') for f in test_files]
-        y_test = np.array([self.data_info[self.data_info['MRI'] == f]['Conv'].values[0] for f in test_files])
+        test_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
+                      for _, row in test_info.iterrows()]
+        y_test = test_info['Conv'].values
 
-        u_brain_train = [os.path.join(self.root, f'segment/FS7/{self.segment}', f'{f}.pkl') for f in u_train_files]
-        u_y_train = np.array([self.u_data_info[self.u_data_info['MRI'] == f]['Conv'].values[0] for f in u_train_files])
+        u_train_files = [os.path.join(self.root, 'PUP_FBP', row.PET, f'pet_proc/{row.PET}_SUVR.pkl')
+                         for _, row in self.u_data_info.iterrows()]
+        u_y_train = self.u_data_info['Conv'].values
 
-        datasets = {'train': {'path': brain_train, 'y': y_train},
-                    'test': {'path': brain_test, 'y': y_test},
-                    'u_train': {'path': u_brain_train, 'y': u_y_train}}
+        datasets = {'train': {'path': train_files, 'y': y_train},
+                    'test': {'path': test_files, 'y': y_test},
+                    'u_train': {'path': u_train_files, 'y': u_y_train}}
 
         return datasets
 
 
-class MRIBase(Dataset):
+class PETBase(Dataset):
+
+    SLICE = {'xmin': 30, 'xmax': 222,
+             'ymin': 30, 'ymax': 222,
+             'zmin': 30, 'zmax': 222}
 
     def __init__(self,
                  dataset: dict,
@@ -95,10 +99,17 @@ class MRIBase(Dataset):
     def load_image(self, path):
         with open(path, 'rb') as f:
             image = pickle.load(f)
+        # image = self.slice_image(image)
+        return image
+
+    def slice_image(self, image):
+        image = image[self.SLICE['xmin']:self.SLICE['xmax'],
+                      self.SLICE['ymin']:self.SLICE['ymax'],
+                      self.SLICE['zmin']:self.SLICE['zmax']]
         return image
 
 
-class MRI(MRIBase):
+class PET(PETBase):
 
     def __init__(self, dataset, pin_memory, transform, **kwargs):
         super().__init__(dataset, pin_memory, **kwargs)
@@ -118,7 +129,7 @@ class MRI(MRIBase):
         return dict(x=img, y=y, idx=idx)
 
 
-class MRIMoCo(MRIBase):
+class PETMoCo(PETBase):
 
     def __init__(self, dataset, pin_memory, query_transform, key_transform, **kwargs):
         super().__init__(dataset, pin_memory, **kwargs)
@@ -141,33 +152,15 @@ class MRIMoCo(MRIBase):
 
 if __name__ == '__main__':
 
-    import time
-    import seaborn as sns
-    import matplotlib.pyplot as plt
-    from torch.utils.data import DataLoader
+    for random_state in [2021, 2022, 2023, 2024, 2025]:
+        processor = PETProcessor(root='D:/data/ADNI',
+                                 data_info='labels/data_info.csv',
+                                 random_state=random_state)
+        datasets = processor.process(train_size=0.9)
 
-    from datasets.transforms import compute_statistics, make_transforms
+        datasets['u_train']
+        test_set = datasets['test']
 
-    processor = MRIProcessor(root='D:/data/ADNI',
-                             data_info='labels/data_info.csv',
-                             mci_only=False,
-                             segment='global',
-                             random_state=2022)
-    datasets = processor.process(train_size=0.9)
-
-    from torch.utils.data import Dataset, DataLoader
-
-    # get the maximum value
-    m, M = +1000, -1000
-    import tqdm
-    for key in datasets.keys():
-        print(key)
-        dset = MRI(dataset=datasets[key], pin_memory=False, transform=None)
-        loader = DataLoader(dataset=dset, batch_size=8, drop_last=False)
-        for sample in tqdm.tqdm(loader):
-            x = sample['x']
-            m_, M_ = x.min(), x.max()
-            if m_ < m:
-                m = m_
-            if M_ > M:
-                M = M_
+        print(np.bincount(test_set['y']))
+    bins = np.bincount(processor.data_info['Conv'].values)
+    bins[0]/np.sum(bins)

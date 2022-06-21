@@ -10,8 +10,8 @@ import wandb
 import torch
 import torch.nn as nn
 
-from datasets.mri import MRI, MRIProcessor
-from datasets.pet import PET, PETProcessor
+from datasets.depr.mri import MRI, MRIProcessor
+from datasets.depr.pet import PET, PETProcessor
 
 from configs.depr.densenet import DenseNetConfig
 

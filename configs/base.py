@@ -122,17 +122,17 @@ class ConfigBase(object):
         parser.add_argument('--root', type=str, default='D:/data/ADNI')
         parser.add_argument('--data_info', type=str, default='labels/data_info.csv')
         parser.add_argument('--mci_only', action='store_true')
-        parser.add_argument('--train_size', type=float, default=0.9)
-        parser.add_argument('--segment', type=str, default=None)
+        parser.add_argument('--n_splits', type=int, default=10)
+        parser.add_argument('--n_cv', type=int, default=0)
         parser.add_argument('--image_size', type=int, default=None,
                             help='global=196, left=64, right=96, hippo=96')
         parser.add_argument('--small_kernel', action='store_true')
-        parser.add_argument('--pin_memory', action='store_true')
         parser.add_argument('--random_state', type=int, default=2022)
 
         # augmentation
         parser.add_argument('--intensity', type=str, choices=('scale', 'normalize', 'minmax'))
         parser.add_argument('--crop', action='store_true')
+        parser.add_argument('--crop_size', type=int)
         parser.add_argument('--rotate', action='store_true')
         parser.add_argument('--flip', action='store_true')
         parser.add_argument('--affine', action='store_true')
@@ -152,7 +152,7 @@ class ConfigBase(object):
         parser.add_argument('--backbone_type', type=str, choices=('densenet', 'resnet', 'cnn'), required=True)
 
         # densenet
-        parser.add_argument('--init_features', type=int, help='32')
+        parser.add_argument('--init_features', type=int, help='64')
         parser.add_argument('--growth_rate', type=int, help='32')
         parser.add_argument('--block_config', type=str, help='"6, 12, 24, 16"')
         parser.add_argument('--bn_size', type=int, help='4')
