@@ -154,10 +154,14 @@ class Classification(object):
                     wandb.log({'lr': self.scheduler.get_last_lr()[0]}, commit=False)
                 else:
                     wandb.log({'lr': self.optimizer.param_groups[0]['lr']}, commit=False)
-                wandb.log(epoch_history)
+
+                log_history = collections.defaultdict(dict)
+                for metric_name, scores in epoch_history.items():
+                    for mode, value in scores.items():
+                        log_history[f'{mode}/{metric_name}'] = value
+                wandb.log(log_history)
 
             # Save best model checkpoint
-            # TODO: to eval_history
             eval_loss = test_history['loss']
             if eval_loss <= best_eval_loss:
                 best_eval_loss = eval_loss

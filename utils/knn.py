@@ -1,8 +1,14 @@
 # -*- coding: utf-8 -*-
 
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
+
+from sklearn.neighbors import KNeighborsClassifier
+from sklearn.metrics import roc_auc_score
+from torchmetrics.functional import precision, recall, confusion_matrix
+
 from utils.logging import get_rich_pbar
 
 
@@ -108,3 +114,81 @@ class KNNEvaluator(object):
         pred = pred.sum(dim=1)                                             # (b, C)
 
         return pred.argsort(dim=-1, descending=True)                       # (b, C); first column gives label of highest confidence
+
+
+class BinaryKNN(object):
+
+    def __init__(self, num_classes, num_neighbors, threshold=0.5):
+        self.num_classes = num_classes
+        if isinstance(num_neighbors, int):
+            self.num_neighbors = [num_neighbors]
+        elif isinstance(num_neighbors, list):
+            self.num_neighbors = num_neighbors
+        else:
+            raise NotImplementedError
+        self.threshold = threshold
+
+    @torch.no_grad()
+    def evaulate(self, net, train_loader, test_loader):
+
+        net.eval()
+        device = next(net.parameters()).device
+
+        # extract features
+        with get_rich_pbar(transient=True, auto_refresh=False) as pg:
+
+            desc = "[bold yellow] Extracting features..."
+            task = pg.add_task(desc, total=len(train_loader) + len(test_loader))
+
+            # 1. Extract features of training data
+            train_z, labels_train = [], []
+            for batch in train_loader:
+                z = net(batch['x'].to(device, non_blocking=True))
+                train_z += [F.normalize(z, dim=1).cpu().numpy()]
+                labels_train += [batch['y'].cpu().numpy()]
+                pg.update(task, advance=1.)
+            train_z = np.concatenate(train_z, axis=0)
+            labels_train = np.concatenate(labels_train, axis=0)
+
+            # 2. Extract features of testing data
+            test_z, labels_test = [], []
+            for batch in test_loader:
+                z = net(batch['x'].to(device, non_blocking=True))
+                test_z += [F.normalize(z, dim=1).cpu().numpy()]
+                labels_test += [batch['y'].to(device).cpu().numpy()]
+                pg.update(task, advance=1.)
+            test_z = np.concatenate(test_z, axis=0)
+            labels_test = np.concatenate(labels_test, axis=0)
+
+        # k-nn
+        scores = dict()
+        for num_neighbor in self.num_neighbors:
+            knn = KNeighborsClassifier(n_neighbors=num_neighbor, metric='cosine')
+            knn.fit(train_z, labels_train)
+            y_pred = knn.predict(test_z)
+            y_pred_prob = knn.predict_proba(test_z)
+            result = self.classification_result(y_true=labels_test,
+                                                y_pred=y_pred,
+                                                y_pred_prob=y_pred_prob)
+            scores[f'knn@{num_neighbor}'] = result
+        return scores
+
+    def classification_result(self, y_true, y_pred, y_pred_prob):
+
+        auc_ = roc_auc_score(y_true, y_pred_prob[:, 1])
+
+        confusion_matrix_ = confusion_matrix(torch.tensor(y_pred), torch.tensor(y_true),
+                                             num_classes=self.num_classes)
+        n00, n01, n10, n11 = confusion_matrix_.reshape(-1, ).cpu().numpy().tolist()
+
+        accuracy_ = (n00 + n11) / (n00 + n01 + n10 + n11)
+        sensitivity_ = n11 / (n01 + n11 + 1e-7)
+        specificity_ = n00 / (n00 + n10 + 1e-7)
+        precision_ = n11 / (n10 + n11 + 1e-7)
+        f1_ = (2 * precision_ * sensitivity_) / (precision_ + sensitivity_ + 1e-7)
+        gmean_ = np.sqrt(sensitivity_ * specificity_)
+
+        result = dict(auc=auc_, acc=accuracy_, sens=sensitivity_,
+                      spec=specificity_, prec=precision_,
+                      f1=f1_, gm=gmean_)
+        return result
