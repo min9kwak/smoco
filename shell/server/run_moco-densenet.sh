@@ -60,7 +60,7 @@ do
 		--cosine_warmup 0 \
 		--cosine_cycles 1 \
 		--cosine_min_lr 0.0 \
-		--save_every 1000 \
+		--save_every 2000 \
 		--enable_wandb \
 		--projector_dim $PROJECTOR_DIM \
 		--num_negatives $NUM_NEGATIVES \

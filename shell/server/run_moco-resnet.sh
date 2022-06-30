@@ -24,9 +24,9 @@ KEY_MOMENTUM=0.995
 
 for RANDOM_STATE in 2021 2023 2025
 do
-	for ARCH in 18 50
+	for ARCH in 50
 	do
-		for NUM_NEGATIVES in 512 1024
+		for NUM_NEGATIVES in 512
 		do
 			python ./run_moco.py \
 			--gpus $GPUS \
@@ -40,22 +40,23 @@ do
 			--image_size $IMAGE_SIZE \
 			--random_state $RANDOM_STATE \
 			--intensity $INTENSITY \
+			--crop \
+			--crop_size 64 \
+			--small_kernel \
 			--flip \
 			--rotate \
-			--blur \
-			--blur_std 0.05 \
 			--prob 0.5 \
 			--backbone_type $BACKBONE_TYPE \
 			--arch $ARCH \
 			--epochs $EPOCHS \
 			--batch_size $BATCH_SIZE \
-			--optimizer sgd \
+			--optimizer $OPTIMIZER \
 			--learning_rate $LEARNING_RATE \
 			--weight_decay 0.0001 \
 			--cosine_warmup 0 \
 			--cosine_cycles 1 \
 			--cosine_min_lr 0.0 \
-			--save_every 200 \
+			--save_every 2000 \
 			--enable_wandb \
 			--projector_dim $PROJECTOR_DIM \
 			--num_negatives $NUM_NEGATIVES \
