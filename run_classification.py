@@ -78,7 +78,7 @@ def main_worker(local_rank: int, config: object):
     if config.enable_wandb:
         wandb.init(
             name=f'{config.model_name} : {config.hash}',
-            project=f'sttr-{config.task}',
+            project=f'sttr-{config.task}-classification',
             config=config.__dict__
         )
 
