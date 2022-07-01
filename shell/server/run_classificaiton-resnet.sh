@@ -44,7 +44,7 @@ do
 		--arch $ARCH \
 		--epochs $EPOCHS \
 		--batch_size $BATCH_SIZE \
-		--optimizer adamw \
+		--optimizer $OPTIMIZER \
 		--learning_rate $LEARNING_RATE \
 		--weight_decay 0.0001 \
 		--cosine_warmup 0 \

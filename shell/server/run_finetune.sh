@@ -5,17 +5,17 @@ SERVER=workstation2
 GPUS=00
 
 EPOCHS=100
-OPTIMIZER=sgd
-LEARNING_RATE=0.03
+OPTIMIZER=adamw
+LEARNING_RATE=0.0001
 
 PRETRAINED_FILE_PRE="checkpoints/pet-moco/resnet/"
 HASH="2022-06-11_15-53-34"
 
 for HASH in "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34"
 do
-  for LEARNING_RATE in 0.03 0.01
+  for LEARNING_RATE in 0.0001
   do
-    for EPOCHS in 50 100
+    for EPOCHS in 100 50
     do
       PRETRAINED_DIR="${PRETRAINED_FILE_PRE}${HASH}"
       python ./run_finetune.py \
@@ -28,10 +28,9 @@ do
       --cosine_warmup 0 \
       --cosine_cycles 1 \
       --cosine_min_lr 0.0 \
-      --save_every 200 \
+      --save_every 2000 \
       --enable_wandb \
       --pretrained_dir $PRETRAINED_DIR \
-      --freeze_bn \
       --balance
     done
   done
