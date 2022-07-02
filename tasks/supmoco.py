@@ -23,16 +23,18 @@ from utils.logging import get_rich_pbar, make_epoch_description
 import wandb
 
 
-def mask_topk(mask, topk):
-    mask = mask.float()
-    selected = torch.zeros(mask.size(0), topk, device=mask.device, dtype=torch.int64)
-    at_least_one = mask.sum(1).gt(0)
+def mask_topk(mask, logits, topk):
 
-    topk_index = torch.multinomial(mask[at_least_one], topk)
-    selected[at_least_one] = topk_index
+    logits_ = logits.clone()
+    logits_[~mask.bool()] = -10.0
 
-    mask_selected = torch.zeros(*mask.size(), device=mask.device).scatter(1, selected, 1)
-    return mask.mul(mask_selected)
+    topk_index = torch.topk(logits_, k=topk).indices
+    topk_mask = torch.scatter(torch.zeros_like(logits_),
+                              dim=1,
+                              index=topk_index,
+                              value=1).to(logits.device)
+    mask = topk_mask * mask
+    return mask
 
 
 def loss_on_mask(loss, mask):
@@ -46,9 +48,10 @@ def loss_on_mask(loss, mask):
 
 
 class SupMoCoLoss(nn.Module):
-    def __init__(self, temperature: float = 0.2):
+    def __init__(self, temperature: float = 0.2, topk: int = None):
         super(SupMoCoLoss, self).__init__()
         self.temperature = temperature
+        self.topk = topk
 
     def forward(self,
                 queries: torch.FloatTensor,
@@ -74,6 +77,10 @@ class SupMoCoLoss(nn.Module):
         # 2: Supervised Contrastive Loss
         mask_class = torch.eq(labels.view(-1, 1), queue.labels.view(-1, 1).T).float()
         mask_class[labels == -1, :] = 0
+
+        if self.topk:
+            mask_class = mask_topk(mask_class, neg_logits, self.topk)
+
         mask_class = torch.cat((torch.zeros(B, 1, device=logits.device), mask_class), dim=1)
 
         masks = [mask_base, mask_class]

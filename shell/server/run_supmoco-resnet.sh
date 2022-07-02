@@ -19,12 +19,13 @@ BACKBONE_TYPE=resnet
 ARCH=50
 
 PROJECTOR_DIM=128
-NUM_NEGATIVES=1024
+NUM_NEGATIVES=512
 KEY_MOMENTUM=0.995
 
 ALPHAS="1.0,1.0"
 ALPHAS_MIN="1.0,0.0"
 ALPHAS_DECAY_END="-1,-1"
+TOPK=5
 
 for ALPHAS in "1.0,1.0" "1.0,0.5", "1.0,2.0"
 do
@@ -38,8 +39,8 @@ do
 		--data_info labels/data_info.csv \
 		--mci_only \
 		--n_splits $N_SPLITS \
-    --n_cv $N_CV \
-    --image_size $IMAGE_SIZE \
+		--n_cv $N_CV \
+		--image_size $IMAGE_SIZE \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
 		--crop \
@@ -66,7 +67,8 @@ do
 		--split_bn \
 		--alphas=$ALPHAS \
 		--alphas_min=$ALPHAS_MIN \
-		--alphas_decay_end=$ALPHAS_DECAY_END
+		--alphas_decay_end=$ALPHAS_DECAY_END \
+		--topk $TOPK
 	done
 done
 echo "Finished."
