@@ -2,6 +2,7 @@
 
 import os
 import copy
+import collections
 
 import torch
 import torch.nn as nn
@@ -14,7 +15,7 @@ from torch.nn.parallel import DistributedDataParallel
 from utils.distributed import ForMoCo
 from utils.distributed import concat_all_gather
 from utils.metrics import TopKAccuracy
-from utils.knn import KNNEvaluator
+from utils.knn import KNNEvaluator, BinaryKNN
 from utils.optimization import get_optimizer
 from utils.optimization import get_cosine_scheduler
 from utils.logging import get_rich_pbar, make_epoch_description
@@ -289,12 +290,14 @@ class SupMoCo(object):
             # Evaluate
             if self.local_rank == 0:
                 knn_k = kwargs.get('knn_k', [1, 5, 15])
-                knn = KNNEvaluator(knn_k, num_classes=2)
-                knn_scores = knn.evaluate(self.net_q,
-                                          memory_loader=memory_loader,
-                                          query_loader=query_loader)
-                for k, score in knn_scores.items():
-                    log += f" | {k}: {score * 100:.2f}%"
+                evaluator = BinaryKNN(num_classes=2, num_neighbors=knn_k, threshold=0.5)
+                knn_scores = evaluator.evaluate(net=self.net_q,
+                                                train_loader=memory_loader,
+                                                test_loader=query_loader)
+                for k, result in knn_scores.items():
+                    for metric, score in result.items():
+                        log += f" | {k}/{metric}: {score * 100:.2f}%"
+                    log += f"\n"
             else:
                 knn_scores = None
 
@@ -311,7 +314,12 @@ class SupMoCo(object):
                 else:
                     wandb.log({'lr': self.optimizer.param_groups[0]['lr']}, commit=False)
                 if knn_scores is not None:
-                    wandb.log(knn_scores)
+                    # convert to wandb logging format
+                    knn_history = collections.defaultdict(dict)
+                    for k, result in knn_scores.items():
+                        for metric, score in result.items():
+                            knn_history[f'{k}/{metric}'] = score
+                    wandb.log(knn_history)
 
             if (epoch % save_every == 0) & (self.local_rank == 0):
                 ckpt = os.path.join(self.checkpoint_dir, f"ckpt.{epoch}.pth.tar")

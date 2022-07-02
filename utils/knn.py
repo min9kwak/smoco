@@ -129,7 +129,7 @@ class BinaryKNN(object):
         self.threshold = threshold
 
     @torch.no_grad()
-    def evaulate(self, net, train_loader, test_loader):
+    def evaluate(self, net, train_loader, test_loader):
 
         net.eval()
         device = next(net.parameters()).device

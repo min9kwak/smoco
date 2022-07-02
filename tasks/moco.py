@@ -246,7 +246,7 @@ class MoCo(object):
                 knn_k = kwargs.get('knn_k', [1, 5, 15])
                 # TODO: use threshold from config
                 evaluator = BinaryKNN(num_classes=2, num_neighbors=knn_k, threshold=0.5)
-                knn_scores = evaluator.evaulate(net=self.net_q,
+                knn_scores = evaluator.evaluate(net=self.net_q,
                                                 train_loader=memory_loader,
                                                 test_loader=query_loader)
                 for k, result in knn_scores.items():
