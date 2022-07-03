@@ -23,12 +23,12 @@ from utils.logging import get_rich_pbar, make_epoch_description
 import wandb
 
 
-def mask_topk(mask, logits, topk):
+def mask_topk(mask, logits, k, largest, M):
 
     logits_ = logits.clone()
-    logits_[~mask.bool()] = -10.0
+    logits_[~mask.bool()] = M
 
-    topk_index = torch.topk(logits_, k=topk).indices
+    topk_index = torch.topk(logits_, k=k, largest=largest).indices
     topk_mask = torch.scatter(torch.zeros_like(logits_),
                               dim=1,
                               index=topk_index,
@@ -48,10 +48,20 @@ def loss_on_mask(loss, mask):
 
 
 class SupMoCoLoss(nn.Module):
-    def __init__(self, temperature: float = 0.2, topk: int = None):
+    def __init__(self, temperature: float = 0.2, topk: int = None, bottomk: int = None):
         super(SupMoCoLoss, self).__init__()
         self.temperature = temperature
+
         self.topk = topk
+        self.bottomk = bottomk
+        assert not (self.topk and self.bottomk)
+
+        if self.topk:
+            self.largest = True
+            self.M = -10.0
+        if self.bottomk:
+            self.largest = False
+            self.M = +10.0
 
     def forward(self,
                 queries: torch.FloatTensor,
@@ -79,7 +89,9 @@ class SupMoCoLoss(nn.Module):
         mask_class[labels == -1, :] = 0
 
         if self.topk:
-            mask_class = mask_topk(mask_class, neg_logits, self.topk)
+            mask_class = mask_topk(mask_class, neg_logits, self.topk, largest=self.largest, M=self.M)
+        if self.bottomk:
+            mask_class = mask_topk(mask_class, neg_logits, self.bottomk, largest=self.largest, M=self.M)
 
         mask_class = torch.cat((torch.zeros(B, 1, device=logits.device), mask_class), dim=1)
 

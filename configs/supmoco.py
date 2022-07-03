@@ -21,4 +21,5 @@ class SupMoCoConfig(ConfigBase):
                             help='minimum values of weights for losses')
         parser.add_argument('--alphas_decay_end', type=str, default="-1, -1")
         parser.add_argument('--topk', type=int)
+        parser.add_argument('--bottomk', type=int)
         return parser

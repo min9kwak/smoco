@@ -179,7 +179,10 @@ def main_worker(local_rank: int, config: object):
     model = SupMoCo(backbone=backbone,
                     head=projector,
                     queue=MemoryQueue(size=(config.projector_dim, config.num_negatives), device=local_rank),
-                    loss_function=SupMoCoLoss(temperature=config.temperature, topk=config.topk))
+                    loss_function=SupMoCoLoss(temperature=config.temperature,
+                                              topk=config.topk,
+                                              bottomk=config.bottomk)
+                    )
     model.prepare(
         checkpoint_dir=config.checkpoint_dir,
         optimizer=config.optimizer,
