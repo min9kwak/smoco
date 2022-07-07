@@ -232,7 +232,7 @@ class Classification(object):
         y_pred = torch.cat(y_pred, dim=0).to(torch.float32)
 
         clf_result = classification_result(y_true=y_true.cpu().numpy(),
-                                           y_pred=y_pred.softmax(1).cpu().numpy(),
+                                           y_pred=y_pred.softmax(1).detach().cpu().numpy(),
                                            adjusted=False)
         for k, v in clf_result.items():
             out[k] = v
@@ -269,7 +269,7 @@ class Classification(object):
         y_pred = torch.cat(y_pred, dim=0).to(torch.float32)
 
         clf_result = classification_result(y_true=y_true.cpu().numpy(),
-                                           y_pred=y_pred.softmax(1).cpu().numpy(),
+                                           y_pred=y_pred.softmax(1).detach().cpu().numpy(),
                                            adjusted=False)
         for k, v in clf_result.items():
             out[k] = v
