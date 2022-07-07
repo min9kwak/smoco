@@ -6,7 +6,9 @@ import torch.nn as nn
 import torch.nn.functional as F
 
 from torchmetrics.functional.classification import accuracy, auroc
-from torchmetrics.functional import precision, recall, confusion_matrix
+from torchmetrics.functional import precision, recall
+
+from sklearn.metrics import roc_auc_score, confusion_matrix
 
 
 class MultiAccuracy(nn.Module):
@@ -195,17 +197,19 @@ class BinaryF1Score(BinaryFBetaScore):
         super(BinaryF1Score, self).__init__(beta=1, threshold=threshold, average=average)
 
 
-def classification_result(y_true, y_pred):
+def classification_result(y_true, y_pred, threshold=0.5):
 
-    accuracy_ = accuracy(preds=y_pred.softmax(1), target=y_true).cpu().item()
-    auroc_ = auroc(preds=y_pred.softmax(1), target=y_true, num_classes=2).cpu().item()
+    y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
 
-    confusion_matrix_ = confusion_matrix(y_pred, y_true, num_classes=2)
-    n00, n01, n10, n11 = confusion_matrix_.reshape(-1, ).cpu().numpy().tolist()
+    auroc_ = roc_auc_score(y_true, y_pred[:, 1])
+    cm = confusion_matrix(y_true=y_true,
+                          y_pred=y_pred[:, 1] > threshold)
+    n00, n01, n10, n11 = cm.reshape(-1, ).tolist()
 
-    sensitivity_ = n11 / (n01 + n11 + 1e-7)
-    specificity_ = n00 / (n00 + n10 + 1e-7)
-    precision_ = n11 / (n10 + n11 + 1e-7)
+    accuracy_ = (n00 + n11) / (n00 + n01 + n10 + n11)
+    sensitivity_ = n11 / (n11 + n10 + 1e-7)
+    specificity_ = n00 / (n00 + n01 + 1e-7)
+    precision_ = n11 / (n11 + n01 + 1e-7)
     f1_ = (2 * precision_ * sensitivity_) / (precision_ + sensitivity_ + 1e-7)
     gmean_ = np.sqrt(sensitivity_ * specificity_)
 

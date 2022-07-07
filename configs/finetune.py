@@ -76,6 +76,7 @@ class FinetuneConfig(object):
 
     @property
     def checkpoint_dir(self) -> str:
+        # TODO: some easier way
         ckpt = os.path.join(
             self.pretrained_dir,
             self.finetune_type,
