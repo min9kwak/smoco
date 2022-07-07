@@ -10,6 +10,7 @@ from sklearn.metrics import roc_auc_score
 from torchmetrics.functional import precision, recall, confusion_matrix
 
 from utils.logging import get_rich_pbar
+from utils.metrics import classification_result
 
 
 class KNNEvaluator(object):
@@ -165,30 +166,9 @@ class BinaryKNN(object):
         for num_neighbor in self.num_neighbors:
             knn = KNeighborsClassifier(n_neighbors=num_neighbor, metric='cosine')
             knn.fit(train_z, labels_train)
-            y_pred = knn.predict(test_z)
-            y_pred_prob = knn.predict_proba(test_z)
-            result = self.classification_result(y_true=labels_test,
-                                                y_pred=y_pred,
-                                                y_pred_prob=y_pred_prob)
+            y_pred = knn.predict_proba(test_z)
+            result = classification_result(y_true=labels_test,
+                                           y_pred=y_pred,
+                                           adjusted=False)
             scores[f'knn@{num_neighbor}'] = result
         return scores
-
-    def classification_result(self, y_true, y_pred, y_pred_prob):
-
-        auc_ = roc_auc_score(y_true, y_pred_prob[:, 1])
-
-        confusion_matrix_ = confusion_matrix(torch.tensor(y_pred), torch.tensor(y_true),
-                                             num_classes=self.num_classes)
-        n00, n01, n10, n11 = confusion_matrix_.reshape(-1, ).cpu().numpy().tolist()
-
-        accuracy_ = (n00 + n11) / (n00 + n01 + n10 + n11)
-        sensitivity_ = n11 / (n01 + n11 + 1e-7)
-        specificity_ = n00 / (n00 + n10 + 1e-7)
-        precision_ = n11 / (n10 + n11 + 1e-7)
-        f1_ = (2 * precision_ * sensitivity_) / (precision_ + sensitivity_ + 1e-7)
-        gmean_ = np.sqrt(sensitivity_ * specificity_)
-
-        result = dict(auc=auc_, acc=accuracy_, sens=sensitivity_,
-                      spec=specificity_, prec=precision_,
-                      f1=f1_, gm=gmean_)
-        return result

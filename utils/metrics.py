@@ -9,6 +9,7 @@ from torchmetrics.functional.classification import accuracy, auroc
 from torchmetrics.functional import precision, recall
 
 from sklearn.metrics import roc_auc_score, confusion_matrix
+from sklearn.metrics import roc_curve
 
 
 class MultiAccuracy(nn.Module):
@@ -18,7 +19,6 @@ class MultiAccuracy(nn.Module):
 
     @torch.no_grad()
     def forward(self, logits: torch.Tensor, labels: torch.Tensor):
-
         assert logits.ndim == 2, "(B, F)"
         assert labels.ndim == 1, "(B,  )"
         assert len(logits) == len(labels)
@@ -37,7 +37,6 @@ class TopKAccuracy(nn.Module):
 
     @torch.no_grad()
     def forward(self, logits: torch.Tensor, labels: torch.Tensor):
-
         assert logits.ndim == 2, "(B, F)"
         assert labels.ndim == 1, "(B,  )"
         assert len(logits) == len(labels)
@@ -46,8 +45,8 @@ class TopKAccuracy(nn.Module):
             preds = F.softmax(logits, dim=1)
             topk_probs, topk_indices = torch.topk(preds, self.k, dim=1)
             labels = labels.view(-1, 1).expand_as(topk_indices)  # (B, k)
-            correct = labels.eq(topk_indices) * (topk_probs)     # (B, k)
-            correct = correct.sum(dim=1).bool().float()          # (B, ) & {0, 1}
+            correct = labels.eq(topk_indices) * (topk_probs)  # (B, k)
+            correct = correct.sum(dim=1).bool().float()  # (B, ) & {0, 1}
 
         return torch.mean(correct)
 
@@ -60,7 +59,7 @@ class MultiPrecision(nn.Module):
 
     @torch.no_grad()
     def forward(self, logits: torch.Tensor, labels: torch.Tensor):
-        
+
         assert logits.ndim == 2, "(B, F)"
         assert labels.ndim == 1, "(B,  )"
 
@@ -150,7 +149,7 @@ class BinaryFBetaScore(nn.Module):
 
         with torch.no_grad():
             pred = torch.sigmoid(logit)
-            pred = pred > self.threshold   # boolean
+            pred = pred > self.threshold  # boolean
             true = label > self.threshold  # boolean
 
             if self.average == 'macro':
@@ -171,15 +170,15 @@ class BinaryFBetaScore(nn.Module):
         pred = pred.float()  # inputs could be boolean values
         true = true.float()  # inputs could be boolean values
 
-        tp = (pred * true).sum().float()          # True positive
-        _  = ((1-pred) * (1-true)).sum().float()  # True negative
-        fp = ((pred) * (1-true)).sum().float()    # False positive
-        fn = ((1-pred) * true).sum().float()      # False negative
+        tp = (pred * true).sum().float()  # True positive
+        _ = ((1 - pred) * (1 - true)).sum().float()  # True negative
+        fp = ((pred) * (1 - true)).sum().float()  # False positive
+        fn = ((1 - pred) * true).sum().float()  # False negative
 
         precision_ = tp / (tp + fp + 1e-7)
         recall_ = tp / (tp + fn + 1e-7)
 
-        f_beta = (1 + beta**2) * precision_ * recall_ / (beta**2 * precision_ + recall_ + 1e-7)
+        f_beta = (1 + beta ** 2) * precision_ * recall_ / (beta ** 2 * precision_ + recall_ + 1e-7)
 
         return f_beta
 
@@ -197,11 +196,18 @@ class BinaryF1Score(BinaryFBetaScore):
         super(BinaryF1Score, self).__init__(beta=1, threshold=threshold, average=average)
 
 
-def classification_result(y_true, y_pred, threshold=0.5):
-
-    y_true, y_pred = y_true.cpu().numpy(), y_pred.cpu().numpy()
-
+def classification_result(y_true, y_pred, adjusted=False):
+    # y_true : numpy array
+    # y_pred : numpy array softmax-ed
     auroc_ = roc_auc_score(y_true, y_pred[:, 1])
+
+    if adjusted:
+        fpr, tpr, thresholds = roc_curve(y_true, y_pred[:, 1])
+        dist = fpr ** 2 + (1 - tpr) ** 2
+        threshold = thresholds[np.argmin(dist)]
+    else:
+        threshold = 0.5
+
     cm = confusion_matrix(y_true=y_true,
                           y_pred=y_pred[:, 1] > threshold)
     n00, n01, n10, n11 = cm.reshape(-1, ).tolist()
@@ -219,7 +225,6 @@ def classification_result(y_true, y_pred, threshold=0.5):
 
 
 if __name__ == '__main__':
-
     targets = torch.LongTensor([2, 2, 0, 2, 1, 1, 1])
     predictions = torch.FloatTensor(
         [
