@@ -75,6 +75,10 @@ class FinetuneConfig(object):
         self._task = value
 
     @property
+    def model_name(self) -> str:
+        return self.backbone_type
+
+    @property
     def checkpoint_dir(self) -> str:
         ckpt = os.path.join(
             self.checkpoint_root,
