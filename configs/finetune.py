@@ -76,12 +76,12 @@ class FinetuneConfig(object):
 
     @property
     def checkpoint_dir(self) -> str:
-        # TODO: some easier way
         ckpt = os.path.join(
-            self.pretrained_dir,
-            self.finetune_type,
-            self.hash
-        )
+            self.checkpoint_root,
+            self.task,          # 'mri', 'pet',
+            self.model_name,    # 'densenet', 'resnet'
+            self.hash           # ...
+            )
         os.makedirs(ckpt, exist_ok=True)
         return ckpt
 
