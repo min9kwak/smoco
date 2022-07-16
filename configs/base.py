@@ -130,6 +130,7 @@ class ConfigBase(object):
         parser.add_argument('--random_state', type=int, default=2022)
 
         # augmentation
+        # TODO: remove --crop, --blur
         parser.add_argument('--intensity', type=str, choices=('scale', 'normalize', 'minmax'))
         parser.add_argument('--crop', action='store_true')
         parser.add_argument('--crop_size', type=int)

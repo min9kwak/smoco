@@ -22,7 +22,7 @@ BLOCK_CONFIG="6,12,24,16"
 DROPOUT_RATE=0.00
 
 PROJECTOR_DIM=128
-NUM_NEGATIVES=1024
+NUM_NEGATIVES=512
 KEY_MOMENTUM=0.995
 
 for RANDOM_STATE in 2021 2023 2025
@@ -41,10 +41,11 @@ do
 		--image_size $IMAGE_SIZE \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
+		--crop \
+		--crop_size 64 \
+		--small_kernel \
 		--flip \
-		--rotate \
-		--blur \
-		--blur_std 0.05 \
+		--affine \
 		--prob 0.5 \
 		--backbone_type $BACKBONE_TYPE \
 		--init_features $INIT_FEATURES \

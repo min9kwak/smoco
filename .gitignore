@@ -135,6 +135,7 @@ meetings/
 papers/
 scratches/
 wandb/
+writing/
 logs.pkl
 
 # IDE

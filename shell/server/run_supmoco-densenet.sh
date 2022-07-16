@@ -50,7 +50,7 @@ do
 		--crop_size 64 \
 		--small_kernel \
 		--flip \
-		--rotate \
+		--affine \
 		--prob 0.5 \
 		--backbone_type $BACKBONE_TYPE \
 		--init_features $INIT_FEATURES \

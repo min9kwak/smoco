@@ -194,7 +194,8 @@ def main_worker(local_rank: int, config: object):
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 
-    train_set = Brain(dataset=datasets['train'], data_type=config.data_type, transform=test_transform)
+    finetune_transform = train_transform if config.finetune_trans == 'train' else test_transform
+    train_set = Brain(dataset=datasets['train'], data_type=config.data_type, transform=finetune_transform)
     test_set = Brain(dataset=datasets['test'], data_type=config.data_type, transform=test_transform)
 
     # Reconfigure batch-norm layers

@@ -8,6 +8,8 @@ EPOCHS=100
 OPTIMIZER=adamw
 LEARNING_RATE=0.0001
 
+FINETUNE_TRANS=train
+
 PRETRAINED_FILE_PRE="checkpoints/pet-moco/resnet/"
 HASH="2022-06-11_15-53-34"
 
@@ -31,7 +33,8 @@ do
       --save_every 2000 \
       --enable_wandb \
       --pretrained_dir $PRETRAINED_DIR \
-      --balance
+      --balance \
+      --finetune_trans $FINETUNE_TRANS
     done
   done
 done
