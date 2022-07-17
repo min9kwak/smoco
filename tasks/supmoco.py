@@ -88,6 +88,7 @@ class SupMoCoLoss(nn.Module):
         mask_class = torch.eq(labels.view(-1, 1), queue.labels.view(-1, 1).T).float()
         mask_class[labels == -1, :] = 0
 
+        # TODO: topk per class
         if self.topk:
             mask_class = mask_topk(mask_class, neg_logits, self.topk, largest=self.largest, M=self.M)
         if self.bottomk:

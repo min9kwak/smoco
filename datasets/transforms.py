@@ -52,9 +52,7 @@ def make_transforms(image_size: int = 72,
     elif intensity == 'scale':
         base_transform.insert(1, ScaleIntensity())
     elif intensity == 'normalize':
-        assert all(mean_std)
-        base_transform.insert(1, Normalize(*mean_std))
-        raise NotImplementedError
+        base_transform.insert(1, NormalizeIntensity(nonzero=True))
     elif intensity == 'minmax':
         assert all(min_max)
         base_transform.insert(1, MinMax(*min_max))

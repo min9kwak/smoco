@@ -119,11 +119,13 @@ def main_worker(local_rank: int, config: object):
     datasets = data_processor.process(n_splits=config.n_splits, n_cv=config.n_cv)
 
     # intensity normalization
-    assert config.intensity in [None, 'scale', 'minmax']
+    assert config.intensity in [None, 'scale', 'minmax', 'normalize']
     mean_std, min_max = (None, None), (None, None)
     if config.intensity is None:
         pass
     elif config.intensity == 'scale':
+        pass
+    elif config.intensity == 'normalize':
         pass
     elif config.intensity == 'minmax':
         with open(os.path.join(config.root, 'labels/minmax.pkl'), 'rb') as fb:
