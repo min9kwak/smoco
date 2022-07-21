@@ -192,3 +192,82 @@ class BrainMixUp(BrainBase):
         y_mix = lam * y + (1 - lam) * y_mix
 
         return dict(x=img, x_mix=img_mix, y=y, y_mix=y_mix, idx=idx, idx_mix=idx_mix)
+
+
+if __name__ == '__main__':
+
+    processor = BrainProcessor(root='D:/data/ADNI',
+                               data_info='labels/data_info.csv',
+                               data_type='pet',
+                               mci_only=True,
+                               random_state=2021)
+    datasets = processor.process(10, 0)
+
+    from datasets.transforms import make_transforms
+    train_transform, test_transform = make_transforms(image_size=72,
+                                                      intensity='normalize',
+                                                      rotate=True,
+                                                      flip=True,
+                                                      prob=0.5)
+    train_set = BrainMixUp(dataset=datasets['train'], data_type='pet', transform=train_transform, alpha=0.3)
+    test_set = BrainMixUp(dataset=datasets['test'], data_type='pet', transform=test_transform, alpha=0.3)
+
+    from datasets.samplers import ImbalancedDatasetSampler
+    from torch.utils.data import DataLoader
+    train_sampler = ImbalancedDatasetSampler(dataset=train_set)
+    train_loader = DataLoader(dataset=train_set, batch_size=16 // 2,
+                              sampler=train_sampler, drop_last=True)
+    test_loader = DataLoader(dataset=test_set, batch_size=16 // 2,
+                             drop_last=False)
+    for batch in test_loader:
+        batch.keys()
+
+        i = 0
+        x = batch['x'][i][0].numpy()
+        x_mix = batch['x_mix'][i][0].numpy()
+
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+        s = x.shape[0]
+
+        fig, axs = plt.subplots(2, 3, figsize=(24, 16))
+        axs = axs.ravel()
+        sns.heatmap(x[s//2, :, :], cmap='binary', ax=axs[0])
+        sns.heatmap(x[:, s//2, :], cmap='binary', ax=axs[1])
+        sns.heatmap(x[:, :, s//2], cmap='binary', ax=axs[2])
+        sns.heatmap(x_mix[s // 2, :, :], cmap='binary', ax=axs[3])
+        sns.heatmap(x_mix[:, s // 2, :], cmap='binary', ax=axs[4])
+        sns.heatmap(x_mix[:, :, s // 2], cmap='binary', ax=axs[5])
+        plt.tight_layout()
+        plt.show()
+        break
+
+    for batch in train_loader:
+
+        batch.keys()
+
+        i = 0
+        x = batch['x'][i][0].numpy()
+        x_mix = batch['x_mix'][i][0].numpy()
+
+        import matplotlib.pyplot as plt
+        import seaborn as sns
+
+        s = x.shape[0]
+
+        fig, axs = plt.subplots(2, 3, figsize=(24, 16))
+        axs = axs.ravel()
+        sns.heatmap(x[s // 2, :, :], cmap='binary', ax=axs[0])
+        sns.heatmap(x[:, s // 2, :], cmap='binary', ax=axs[1])
+        sns.heatmap(x[:, :, s // 2], cmap='binary', ax=axs[2])
+        sns.heatmap(x_mix[s // 2, :, :], cmap='binary', ax=axs[3])
+        sns.heatmap(x_mix[:, s // 2, :], cmap='binary', ax=axs[4])
+        sns.heatmap(x_mix[:, :, s // 2], cmap='binary', ax=axs[5])
+        plt.tight_layout()
+        plt.show()
+        break
+
+    for batch in train_loader:
+        x = torch.concat([batch['x'], batch['x_mix']], dim=0)
+        y = torch.concat([batch['y'], batch['y_mix']], dim=0)
+        break

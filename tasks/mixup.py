@@ -106,7 +106,7 @@ class MixUp(object):
 
         # DataLoader (train, val, test)
         train_sampler = ImbalancedDatasetSampler(dataset=train_set)
-        train_loader = DataLoader(dataset=train_set, batch_size=self.batch_size,
+        train_loader = DataLoader(dataset=train_set, batch_size=self.batch_size // 2,
                                   sampler=train_sampler, num_workers=self.num_workers,
                                   drop_last=True)
 
@@ -203,13 +203,11 @@ class MixUp(object):
             for i, batch in enumerate(data_loader):
                 with torch.cuda.amp.autocast(self.mixed_precision):
 
-                    # TODO: concatenate x, x_mix
-                    x = batch['x'].float().to(self.local_rank)
-                    y = batch['y'].to(self.local_rank)
+                    x = torch.concat([batch['x'], batch['x_mix']], dim=0).float().to(self.local_rank)
+                    y = torch.concat([batch['y'], batch['y_mix']], dim=0).float().to(self.local_rank)
 
-                    # TODO: change loss function - bce or nll. do not use long
                     logits = self.classifier(self.backbone(x))
-                    loss = self.loss_function(logits, y.long())
+                    loss = self.loss_function(logits, y)
                     if self.scaler is not None:
                         self.scaler.scale(loss).backward()
                         self.scaler.step(self.optimizer)
@@ -226,7 +224,7 @@ class MixUp(object):
                     pg.update(task, advance=1., description=desc)
                     pg.refresh()
 
-                y_true.append(y.long())
+                y_true.append(torch.argmax(y, dim=1).long())
                 y_pred.append(logits)
 
         out = {k: v.mean().item() for k, v in result.items()}
@@ -308,3 +306,30 @@ class MixUp(object):
     def freeze_params(net: nn.Module):
         for p in net.parameters():
             p.requires_grad = False
+
+
+if __name__ == '__main__':
+
+    logits = torch.tensor([[-1.0, 2.0],
+                           [0.1, 0.3],
+                           [0.7, -0.1],
+                           [2.5, 1.1]]).float()
+    labels = torch.tensor([0, 0, 1, 1]).long()
+    labels_onehot = torch.tensor([[1, 0],
+                                  [1, 0],
+                                  [0, 1],
+                                  [0, 1]]).float()
+
+    criterion_ce = nn.CrossEntropyLoss()
+    loss_ce = criterion_ce(logits, labels)
+    print(loss_ce)
+
+    a = torch.nn.BCEWithLogitsLoss()
+    loss_bce = criterion_ce(logits, labels_onehot)
+
+    import numpy as np
+
+    v = [np.random.beta(0.3, 0.3) for _ in range(1000)]
+    import matplotlib.pyplot as plt
+    plt.hist(v, bins=200)
+    plt.show()
