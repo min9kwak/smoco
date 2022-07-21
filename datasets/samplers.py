@@ -46,3 +46,25 @@ class ImbalancedDatasetSampler(Sampler):
     @staticmethod
     def get_target(dataset: Dataset, idx: int):
         return dataset.y[idx]
+
+
+if __name__ == '__main__':
+
+    class Dummy(Dataset):
+        def __init__(self):
+            self.x = range(100)
+            self.y = [0] * 10 + [1] * 90
+        def __len__(self):
+            return 100
+        def __getitem__(self, idx):
+            return dict(x=self.x[idx], y=self.y[idx], idx=idx)
+
+    from torch.utils.data import DataLoader
+
+    dset = Dummy()
+    loader = DataLoader(dataset=dset, batch_size=10, sampler=ImbalancedDatasetSampler(dataset=dset))
+
+    idx_list = []
+    import numpy as np
+    for batch in loader:
+        print(np.bincount(batch['y'].numpy()))
