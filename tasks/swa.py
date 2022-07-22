@@ -297,7 +297,7 @@ class SWA(object):
         return out
 
     @torch.no_grad()
-    def evaluate(self, loader):
+    def evaluate(self, loader, adjusted=False):
 
         self._set_learning_phase(False)
 
@@ -320,7 +320,7 @@ class SWA(object):
         out = dict()
         clf_result = classification_result(y_true=y.cpu().numpy(),
                                            y_pred=y_pred.softmax(1).detach().cpu().numpy(),
-                                           adjusted=False)
+                                           adjusted=adjusted)
         for k, v in clf_result.items():
             out[k] = v
 

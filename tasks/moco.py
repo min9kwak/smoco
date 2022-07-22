@@ -244,11 +244,11 @@ class MoCo(object):
             # Evaluate
             if self.local_rank == 0:
                 knn_k = kwargs.get('knn_k', [1, 5, 15])
-                # TODO: use threshold from config
                 evaluator = BinaryKNN(num_classes=2, num_neighbors=knn_k, threshold=0.5)
                 knn_scores = evaluator.evaluate(net=self.net_q,
                                                 train_loader=memory_loader,
-                                                test_loader=query_loader)
+                                                test_loader=query_loader,
+                                                adjusted=False)
                 for k, result in knn_scores.items():
                     for metric, score in result.items():
                         log += f" | {k}/{metric}: {score * 100:.2f}%"
@@ -287,6 +287,22 @@ class MoCo(object):
         if self.local_rank == 0:
             ckpt = os.path.join(self.checkpoint_dir, f"ckpt.last.pth.tar")
             self.save_checkpoint(ckpt, epoch=epoch, history=history)
+
+        # adjusted
+        knn_k = kwargs.get('knn_k', [1, 5, 15])
+        evaluator = BinaryKNN(num_classes=2, num_neighbors=knn_k, threshold=0.5)
+        knn_scores = evaluator.evaluate(net=self.net_q,
+                                        train_loader=memory_loader,
+                                        test_loader=query_loader,
+                                        adjusted=True)
+        if self.enable_wandb:
+            if knn_scores is not None:
+                # convert to wandb logging format
+                knn_history = collections.defaultdict(dict)
+                for k, result in knn_scores.items():
+                    for metric, score in result.items():
+                        knn_history[f'adjusted/{k}/{metric}'] = score
+                wandb.log(knn_history)
 
     def train(self, data_loader: torch.utils.data.DataLoader):
         """MoCo training."""

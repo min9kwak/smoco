@@ -183,7 +183,18 @@ class Classification(object):
         ckpt = os.path.join(self.checkpoint_dir, f"ckpt.last.pth.tar")
         self.save_checkpoint(ckpt, epoch=epoch)
 
-        # save true-pred arrays as pickle for confusion matrix later
+        # adjusted evaluation
+        test_history = self.evaluate(test_loader, adjusted=True)
+        epoch_history = collections.defaultdict(dict)
+        for k, v1 in test_history.items():
+            epoch_history[k]['adjusted'] = v1
+
+        if self.enable_wandb:
+            log_history = collections.defaultdict(dict)
+            for metric_name, scores in epoch_history.items():
+                for mode, value in scores.items():
+                    log_history[f'{mode}/{metric_name}'] = value
+            wandb.log(log_history)
 
     def train(self, data_loader):
         """Training defined for a single epoch."""
@@ -240,7 +251,7 @@ class Classification(object):
         return out
 
     @torch.no_grad()
-    def evaluate(self, data_loader):
+    def evaluate(self, data_loader, adjusted=False):
         """Evaluation defined for a single epoch."""
 
         steps = len(data_loader)
@@ -270,7 +281,7 @@ class Classification(object):
 
         clf_result = classification_result(y_true=y_true.cpu().numpy(),
                                            y_pred=y_pred.softmax(1).detach().cpu().numpy(),
-                                           adjusted=False)
+                                           adjusted=adjusted)
         for k, v in clf_result.items():
             out[k] = v
 

@@ -130,7 +130,7 @@ class BinaryKNN(object):
         self.threshold = threshold
 
     @torch.no_grad()
-    def evaluate(self, net, train_loader, test_loader):
+    def evaluate(self, net, train_loader, test_loader, adjusted=False):
 
         net.eval()
         device = next(net.parameters()).device
@@ -169,6 +169,6 @@ class BinaryKNN(object):
             y_pred = knn.predict_proba(test_z)
             result = classification_result(y_true=labels_test,
                                            y_pred=y_pred,
-                                           adjusted=False)
+                                           adjusted=adjusted)
             scores[f'knn@{num_neighbor}'] = result
         return scores
