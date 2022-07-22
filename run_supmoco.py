@@ -123,7 +123,7 @@ def main_worker(local_rank: int, config: object):
     if config.small_kernel:
         backbone._fix_first_conv()
 
-    if config.crop:
+    if config.crop_size:
         out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.crop_size)
     else:
         out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
