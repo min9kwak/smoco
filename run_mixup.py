@@ -130,14 +130,11 @@ def main_worker(local_rank: int, config: object):
 
     train_transform, test_transform = make_transforms(image_size=config.image_size,
                                                       intensity=config.intensity,
-                                                      mean_std=mean_std,
                                                       min_max=min_max,
-                                                      crop=config.crop,
                                                       crop_size=config.crop_size,
                                                       rotate=config.rotate,
                                                       flip=config.flip,
                                                       affine=config.affine,
-                                                      blur=config.blur,
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 

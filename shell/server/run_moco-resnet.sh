@@ -40,7 +40,6 @@ do
 			--image_size $IMAGE_SIZE \
 			--random_state $RANDOM_STATE \
 			--intensity $INTENSITY \
-			--crop \
 			--crop_size 64 \
 			--small_kernel \
 			--flip \

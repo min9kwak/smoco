@@ -24,7 +24,7 @@ for RANDOM_STATE in 2021 2023 2025
 do
 	for LEARNING_RATE in 0.0001
 	do
-		python ./run_classification.py \
+		python ./run_mxup.py \
 		--gpus $GPUS \
 		--server $SERVER \
 		--data_type $DATA_TYPE \
@@ -38,7 +38,6 @@ do
 		--intensity $INTENSITY \
 		--flip \
 		--rotate \
-		--crop \
 		--crop_size 64 \
 		--small_kernel \
 		--prob 0.5 \

@@ -37,7 +37,6 @@ do
 		--intensity $INTENSITY \
 		--flip \
 		--rotate \
-		--blur \
 		--blur_std 0.05 \
 		--prob 0.5 \
 		--backbone_type $BACKBONE_TYPE \

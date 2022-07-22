@@ -132,12 +132,10 @@ class ConfigBase(object):
         # augmentation
         # TODO: remove --crop, --blur
         parser.add_argument('--intensity', type=str, choices=('scale', 'normalize', 'minmax'))
-        parser.add_argument('--crop', action='store_true')
         parser.add_argument('--crop_size', type=int)
         parser.add_argument('--rotate', action='store_true')
         parser.add_argument('--flip', action='store_true')
         parser.add_argument('--affine', action='store_true')
-        parser.add_argument('--blur', action='store_true')
         parser.add_argument('--blur_std', type=float)
         parser.add_argument('--prob', type=float, default=0.5)
 

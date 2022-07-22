@@ -121,29 +121,20 @@ def main_worker(local_rank: int, config: object):
     # intensity normalization
     assert config.intensity in [None, 'scale', 'minmax', 'normalize']
     mean_std, min_max = (None, None), (None, None)
-    if config.intensity is None:
-        pass
-    elif config.intensity == 'scale':
-        pass
-    elif config.intensity == 'normalize':
-        pass
-    elif config.intensity == 'minmax':
+    if config.intensity == 'minmax':
         with open(os.path.join(config.root, 'labels/minmax.pkl'), 'rb') as fb:
             minmax_stats = pickle.load(fb)
             min_max = (minmax_stats[config.data_type]['min'], minmax_stats[config.data_type]['max'])
     else:
-        raise NotImplementedError
+        pass
 
     train_transform, test_transform = make_transforms(image_size=config.image_size,
                                                       intensity=config.intensity,
-                                                      mean_std=mean_std,
                                                       min_max=min_max,
-                                                      crop=config.crop,
                                                       crop_size=config.crop_size,
                                                       rotate=config.rotate,
                                                       flip=config.flip,
                                                       affine=config.affine,
-                                                      blur=config.blur,
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 

@@ -33,14 +33,11 @@ class MinMax(Transform):
 
 def make_transforms(image_size: int = 72,
                     intensity: str = 'scale',
-                    mean_std: tuple = (None, None),
                     min_max: tuple = (None, None),
-                    crop: bool = True,
                     crop_size: int = None,
                     rotate: bool = True,
                     flip: bool = True,
                     affine: bool = True,
-                    blur: bool = True,
                     blur_std: float = 0.1,
                     prob: float = 0.2):
 
@@ -61,7 +58,7 @@ def make_transforms(image_size: int = 72,
 
     train_transform, test_transform = base_transform.copy(), base_transform.copy()
 
-    if crop:
+    if crop_size:
         # train_transform.append(RandSpatialCrop(roi_size=(cropsize, cropsize, cropsize), random_size=False))
         train_transform.append(CenterSpatialCrop(roi_size=(crop_size, crop_size, crop_size)))
         test_transform.append(CenterSpatialCrop(roi_size=(crop_size, crop_size, crop_size)))
@@ -80,7 +77,7 @@ def make_transforms(image_size: int = 72,
                                           scale_range=(0.95, 1.05),
                                           prob=prob))
 
-    if blur:
+    if blur_std:
         train_transform.append(RandGaussianNoise(prob=prob, std=blur_std))
 
     train_transform.append(ConvertImageDtype(torch.float32))
