@@ -12,5 +12,6 @@ class MixUpConfig(ConfigBase):
         parser = argparse.ArgumentParser('Classification', add_help=False)
         parser.add_argument('--semi', action='store_true')
         parser.add_argument('--balance', action='store_true', help='apply class balance weight')
-        parser.add_argument('--alpha', type=float, default=0.3, help='hyperparameter of beta distribution')
+        parser.add_argument('--alpha', type=float, default=0.4, help='hyperparameter of beta distribution')
+        parser.add_argument('--n_mix_div', type=int, default=1)
         return parser

@@ -31,7 +31,7 @@ def main():
 
     config = MixUpConfig.parse_arguments()
 
-    config.task = config.data_type
+    config.task = config.data_type + f'-mixup'
 
     set_gpu(config)
     num_gpus_per_node = len(config.gpus)
@@ -150,7 +150,7 @@ def main_worker(local_rank: int, config: object):
         loss_function = nn.CrossEntropyLoss()
 
     # Model (Task)
-    model = MixUp(backbone=backbone, classifier=classifier)
+    model = MixUp(backbone=backbone, classifier=classifier, n_mix_div=config.n_mix_div)
     model.prepare(
         checkpoint_dir=config.checkpoint_dir,
         loss_function=loss_function,

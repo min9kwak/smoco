@@ -19,11 +19,13 @@ class MixUp(object):
     def __init__(self,
                  backbone: nn.Module,
                  classifier: nn.Module,
+                 n_mix_div: int
                  ):
 
         # network
         self.backbone = backbone
         self.classifier = classifier
+        self.n_mix_div = n_mix_div
 
         # optimizer
         self.scaler = None
@@ -214,8 +216,8 @@ class MixUp(object):
             for i, batch in enumerate(data_loader):
                 with torch.cuda.amp.autocast(self.mixed_precision):
 
-                    x = torch.concat([batch['x'], batch['x_mix']], dim=0).float().to(self.local_rank)
-                    y = torch.concat([batch['y'], batch['y_mix']], dim=0).float().to(self.local_rank)
+                    x = torch.concat([batch['x'], batch['x_mix'][:(self.batch_size // 2) // self.n_mix_div]], dim=0).float().to(self.local_rank)
+                    y = torch.concat([batch['y'], batch['y_mix'][:(self.batch_size // 2) // self.n_mix_div]], dim=0).float().to(self.local_rank)
 
                     logits = self.classifier(self.backbone(x))
                     loss = self.loss_function(logits, y)
