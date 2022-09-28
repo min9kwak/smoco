@@ -11,8 +11,7 @@ MRI_DIR_FROM = "D:/data/ADNI/source files/FS7"
 MRI_DIR_TO = "D:/data/ADNI/FS7/"
 
 FBP_DIR_FROM = "D:/data/ADNI/source files/PUP_FBP/"
-# FBP_DIR_TO = "D:/data/ADNI/PUP_FBP/"
-FBP_DIR_TO = "D:/data/ADNI/PUP_FBP_/"
+FBP_DIR_TO = "D:/data/ADNI/PUP_FBP/"
 
 os.makedirs(MRI_DIR_TO, exist_ok=True)
 os.makedirs(FBP_DIR_TO, exist_ok=True)

@@ -5,6 +5,7 @@ import sys
 import time
 import rich
 import numpy as np
+import pickle
 import wandb
 
 import torch
@@ -19,8 +20,7 @@ from models.backbone.densenet import DenseNetBackbone
 from models.backbone.resnet import build_resnet_backbone
 from models.head.classifier import LinearClassifier
 
-from datasets.depr.mri import MRIMoCo, MRIProcessor
-from datasets.depr.pet import PETMoCo, PETProcessor
+from datasets.brain import BrainProcessor, Brain, BrainMoCo
 from datasets.transforms import make_transforms, compute_statistics
 
 from utils.logging import get_rich_logger
@@ -92,56 +92,56 @@ def main_worker(local_rank: int, config: object):
                                     block_config=config.block_config,
                                     bn_size=config.bn_size,
                                     dropout_rate=config.dropout_rate,
-                                    semi=config.semi)
+                                    semi=True)
         activation = True
     elif config.model_name == 'resnet':
         backbone = build_resnet_backbone(arch=config.arch,
                                          no_max_pool=config.no_max_pool,
                                          in_channels=1,
-                                         semi=config.semi)
+                                         semi=True)
         activation = False
     else:
         raise NotImplementedError
 
-    out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
+    if config.small_kernel:
+        backbone._fix_first_conv()
+    if config.crop_size:
+        out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.crop_size)
+    else:
+        out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
     classifier = LinearClassifier(in_channels=out_dim, num_classes=2, activation=activation)
 
     # load data
-    if config.data_type == 'mri':
-        PROCESSOR = MRIProcessor
-        DATA = MRIMoCo
-    elif config.data_type == 'pet':
-        PROCESSOR = PETProcessor
-        DATA = PETMoCo
-    else:
-        raise NotImplementedError
+    data_processor = BrainProcessor(root=config.root,
+                                    data_info=config.data_info,
+                                    data_type=config.data_type,
+                                    mci_only=config.mci_only,
+                                    random_state=config.random_state)
+    datasets = data_processor.process(n_splits=config.n_splits, n_cv=config.n_cv)
 
-    data_processor = PROCESSOR(root=config.root,
-                               data_info=config.data_info,
-                               random_state=config.random_state)
-    datasets = data_processor.process(train_size=config.train_size)
-
-    if config.intensity == 'normalize':
-        mean_std = compute_statistics(DATA=DATA, normalize_set=datasets['train'])
+    # intensity normalization
+    assert config.intensity in [None, 'scale', 'minmax', 'normalize']
+    mean_std, min_max = (None, None), (None, None)
+    if config.intensity == 'minmax':
+        with open(os.path.join(config.root, 'labels/minmax.pkl'), 'rb') as fb:
+            minmax_stats = pickle.load(fb)
+            min_max = (minmax_stats[config.data_type]['min'], minmax_stats[config.data_type]['max'])
     else:
-        mean_std = (None, None)
+        pass
 
     train_transform, test_transform = make_transforms(image_size=config.image_size,
                                                       intensity=config.intensity,
-                                                      mean_std=mean_std,
+                                                      min_max=min_max,
+                                                      crop_size=config.crop_size,
                                                       rotate=config.rotate,
                                                       flip=config.flip,
-                                                      zoom=config.zoom,
-                                                      blur=config.blur,
+                                                      affine=config.affine,
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 
-    l_train_set = DATA(dataset=datasets['train'], pin_memory=config.pin_memory,
-                       query_transform=train_transform, key_transform=train_transform)
-    u_train_set = DATA(dataset=datasets['u_train'], pin_memory=config.pin_memory,
-                       query_transform=train_transform, key_transform=train_transform)
-    test_set = DATA(dataset=datasets['test'], pin_memory=config.pin_memory,
-                    query_transform=test_transform, key_transform=test_transform)
+    l_train_set = Brain(dataset=datasets['train'], data_type=config.data_type, transform=train_transform)
+    u_train_set = Brain(dataset=datasets['u_train'], data_type=config.data_type, transform=train_transform)
+    test_set = Brain(dataset=datasets['test'], transform=test_transform)
 
     # loss function
     if config.balance:

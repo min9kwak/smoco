@@ -134,10 +134,12 @@ documents/
 meetings/
 papers/
 paper/
+ideation/
 scratches/
 wandb/
 writing/
 logs.pkl
+FDG.zip
 
 # IDE
 .vscode
