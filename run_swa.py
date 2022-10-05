@@ -139,9 +139,12 @@ def main_worker(local_rank: int, config: object):
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 
-    l_train_set = Brain(dataset=datasets['train'], data_type=config.data_type, transform=train_transform)
-    u_train_set = Brain(dataset=datasets['u_train'], data_type=config.data_type, transform=train_transform)
-    test_set = Brain(dataset=datasets['test'], transform=test_transform)
+    l_train_set = BrainMoCo(dataset=datasets['train'], data_type=config.data_type,
+                            query_transform=train_transform, key_transform=train_transform)
+    u_train_set = BrainMoCo(dataset=datasets['u_train'], data_type=config.data_type,
+                            query_transform=train_transform, key_transform=train_transform)
+    test_set = BrainMoCo(dataset=datasets['test'], data_type=config.data_type,
+                         query_transform=train_transform, key_transform=train_transform)
 
     # loss function
     if config.balance:

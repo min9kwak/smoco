@@ -13,7 +13,7 @@ from sklearn.utils import class_weight
 class BrainProcessor(object):
     def __init__(self,
                  root: str,
-                 data_info: str,
+                 data_info: str = 'labels/data_info.csv',
                  data_type: str = 'mri',
                  mci_only: bool = False,
                  random_state: int = 2022):

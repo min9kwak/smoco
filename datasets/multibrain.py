@@ -13,7 +13,7 @@ from sklearn.utils import class_weight
 class MultiBrainProcessor(object):
     def __init__(self,
                  root: str,
-                 data_info: str,
+                 data_info: str = 'labels/data_info_multi.csv',
                  random_state: int = 1):
 
         # TODO: select FDG or amyloid PET as argument
