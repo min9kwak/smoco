@@ -8,6 +8,7 @@ import torch
 from torch.utils.data import Dataset
 from sklearn.model_selection import StratifiedGroupKFold
 from sklearn.utils import class_weight
+from sklearn.preprocessing import MinMaxScaler
 
 
 class BrainProcessor(object):
@@ -22,9 +23,17 @@ class BrainProcessor(object):
         # TODO: include multi... define __getitem__ = self.something
         assert data_type in ['mri', 'pet']
         self.data_type = data_type
+        self.random_state = random_state
+        self.demo_columns = ['PTGENDER (1=male, 2=female)', 'Age', 'PTEDUCAT',
+                             'APOE Status', 'MMSCORE', 'CDGLOBAL', 'SUM BOXES']
 
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'Conv': int})
         self.data_info = self.data_info.loc[self.data_info.IS_FILE]
+
+        # preprocess demo
+        self._preprocess_demo()
+
+        # data filtering
         if mci_only:
             self.data_info = self.data_info.loc[self.data_info.MCI == 1]
 
@@ -36,10 +45,6 @@ class BrainProcessor(object):
         # unlabeled and labeled
         self.u_data_info = self.data_info[self.data_info['Conv'].isin([-1])].reset_index(drop=True)
         self.data_info = self.data_info[self.data_info['Conv'].isin([0, 1])].reset_index(drop=True)
-
-        self.random_state = random_state
-        self.demo_columns = ['PTGENDER (1=male, 2=female)', 'Age', 'PTEDUCAT',
-                             'APOE Status', 'MMSCORE', 'CDGLOBAL', 'SUM BOXES']
 
     def process(self, n_splits=10, n_cv=0):
 
@@ -64,6 +69,14 @@ class BrainProcessor(object):
         self.u_data_info = self.u_data_info[~self.u_data_info.RID.isin(test_rid)]
         u_train_info = self.u_data_info.reset_index(drop=True)
 
+        # Demographic & Clinical Data Preprocessing
+        scaler = MinMaxScaler()
+        scaler.fit(train_info[self.demo_columns])
+
+        train_info[self.demo_columns] = scaler.transform(train_info[self.demo_columns])
+        test_info[self.demo_columns] = scaler.transform(test_info[self.demo_columns])
+        u_train_info[self.demo_columns] = scaler.transform(u_train_info[self.demo_columns])
+
         # parse to make paths
         train_data = self.parse_data(train_info)
         test_data = self.parse_data(test_info)
@@ -80,14 +93,40 @@ class BrainProcessor(object):
 
         return datasets
 
-    # TODO: demo -> numeric
+    def _preprocess_demo(self):
+
+        data_demo = self.data_info[['RID', 'Conv'] + self.demo_columns]
+
+        # 1. Gender
+        data_demo_ = data_demo.copy()
+        data_demo_['PTGENDER (1=male, 2=female)'] = data_demo_['PTGENDER (1=male, 2=female)'] - 1
+        data_demo = data_demo_.copy()
+
+        # 2. APOE Status
+        data_demo_ = data_demo.copy()
+        data_demo_.loc[:, 'APOE Status'] = data_demo['APOE Status'].fillna('NC')
+        data_demo_['APOE Status'] = [0 if a == 'NC' else 1 for a in data_demo_['APOE Status'].values]
+        data_demo = data_demo_.copy()
+
+        # 3. Others
+        cols = ['MMSCORE', 'CDGLOBAL', 'SUM BOXES']
+        records = data_demo.groupby('Conv').mean()[cols].to_dict()
+
+        data_demo_ = data_demo.copy()
+        for col in cols:
+            nan_index = data_demo_.index[data_demo[col].isna()]
+            for i in nan_index:
+                value = records[col][data_demo_.loc[i, 'Conv']]
+                data_demo_.loc[i, col] = value
+        data_demo = data_demo_.copy()
+        self.data_info[self.demo_columns] = data_demo[self.demo_columns]
+
     def parse_data(self, data_info):
         mri_files = [self.str2mri(p) if type(p) == str else p for p in data_info.MRI]
         pet_files = [self.str2pet(p) if type(p) == str else p for p in data_info.PET]
-        # demo = data_info[self.demo_columns].values
+        demo = data_info[self.demo_columns].values
         y = data_info.Conv.values
-        # return dict(mri=mri_files, pet=pet_files, demo=demo, y=y)
-        return dict(mri=mri_files, pet=pet_files, y=y)
+        return dict(mri=mri_files, pet=pet_files, demo=demo, y=y)
 
     def str2mri(self, i):
         return os.path.join(self.root, 'template/FS7', f'{i}.pkl')
@@ -104,7 +143,7 @@ class BrainBase(Dataset):
                  **kwargs):
         self.mri = dataset['mri']
         self.pet = dataset['pet']
-        # self.demo = dataset['demo']
+        self.demo = dataset['demo']
         self.y = dataset['y']
 
         assert data_type in ['mri', 'pet']
@@ -137,10 +176,9 @@ class Brain(BrainBase):
         img = self.load_image(path=self.paths[idx])
         if self.transform is not None:
             img = self.transform(img)
-        # demo = self.demo[idx]
+        demo = self.demo[idx]
         y = self.y[idx]
-        return dict(x=img, y=y, idx=idx)
-        # return dict(x=img, demo=demo, y=y, idx=idx)
+        return dict(x=img, demo=demo, y=y, idx=idx)
 
 
 class BrainMoCo(BrainBase):
@@ -154,10 +192,9 @@ class BrainMoCo(BrainBase):
         img = self.load_image(path=self.paths[idx])
         x1 = self.query_transform(img)
         x2 = self.key_transform(img)
-        # demo = self.demo[idx]
+        demo = self.demo[idx]
         y = self.y[idx]
-        return dict(x1=x1, x2=x2, y=y, idx=idx)
-        # return dict(x1=x1, x2=x2, demo=demo, y=y, idx=idx)
+        return dict(x1=x1, x2=x2, demo=demo, y=y, idx=idx)
 
 
 class BrainMixUp(BrainBase):
@@ -191,7 +228,9 @@ class BrainMixUp(BrainBase):
         img_mix = lam * img + (1 - lam) * img_mix
         y_mix = lam * y + (1 - lam) * y_mix
 
-        return dict(x=img, x_mix=img_mix, y=y, y_mix=y_mix, idx=idx, idx_mix=idx_mix)
+        demo = self.demo[idx]
+
+        return dict(x=img, x_mix=img_mix, y=y, y_mix=y_mix, demo=demo, idx=idx, idx_mix=idx_mix)
 
 
 if __name__ == '__main__':
@@ -220,7 +259,7 @@ if __name__ == '__main__':
     test_loader = DataLoader(dataset=test_set, batch_size=16 // 2,
                              drop_last=False)
     for batch in test_loader:
-        batch.keys()
+        print(batch.keys())
 
         i = 0
         x = batch['x'][i][0].numpy()
@@ -240,7 +279,7 @@ if __name__ == '__main__':
         sns.heatmap(x_mix[:, :, s // 2], cmap='binary', ax=axs[5])
         plt.tight_layout()
         plt.show()
-        break
+        assert False
 
     for batch in train_loader:
 

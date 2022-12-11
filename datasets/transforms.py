@@ -5,7 +5,8 @@ import torch
 from torch.utils.data import DataLoader
 from monai.transforms import (
     Compose, AddChannel, RandRotate, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom, RandAffine,
-    RandSpatialCrop, NormalizeIntensity, RandGaussianNoise, Transform, CenterSpatialCrop
+    RandSpatialCrop, NormalizeIntensity, RandGaussianNoise, Transform, CenterSpatialCrop,
+    EnsureChannelFirst
 )
 from torchvision.transforms import ConvertImageDtype, Normalize
 from monai.utils.enums import TransformBackends
@@ -42,7 +43,7 @@ def make_transforms(image_size: int = 72,
                     prob: float = 0.2):
 
     base_transform = [ToTensor(),
-                      AddChannel(),
+                      EnsureChannelFirst(),
                       Resize((image_size, image_size, image_size))]
     if intensity is None:
         pass
@@ -91,7 +92,7 @@ def compute_statistics(DATA, normalize_set):
     print('Start computing mean/std of the training dataset')
 
     start_time = time.time()
-    normalize_transform = Compose([ToTensor(), AddChannel()])
+    normalize_transform = Compose([ToTensor(), EnsureChannelFirst()])
     normalize_set = DATA(dataset=normalize_set, transform=normalize_transform, pin_memory=False)
     normalize_loader = DataLoader(normalize_set, batch_size=16, shuffle=False, drop_last=False)
 

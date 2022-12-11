@@ -3,7 +3,8 @@ import random
 import torch
 from monai.transforms import (
     Compose, AddChannel, RandRotate, RandRotate90, Resize, ScaleIntensity, ToTensor, RandFlip, RandZoom, RandAffine,
-    RandSpatialCrop, NormalizeIntensity, RandGaussianNoise, Transform, CenterSpatialCrop, RandSpatialCrop
+    RandSpatialCrop, NormalizeIntensity, RandGaussianNoise, Transform, CenterSpatialCrop, RandSpatialCrop,
+    EnsureChannelFirst
 )
 from torchvision.transforms import ConvertImageDtype
 
@@ -12,7 +13,7 @@ def make_randaugment(image_size: int = 72,
                      intensity: str = 'normalize',
                      k: int = 2):
 
-    base_transform = [ToTensor(), AddChannel(), Resize((image_size, image_size, image_size))]
+    base_transform = [ToTensor(), EnsureChannelFirst(), Resize((image_size, image_size, image_size))]
 
     # scaling
     if intensity is None:
