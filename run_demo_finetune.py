@@ -18,7 +18,7 @@ from tasks.demo_classification import DemoClassification
 from models.backbone.base import calculate_out_features
 from models.backbone.densenet import DenseNetBackbone
 from models.backbone.resnet import build_resnet_backbone
-from models.backbone.demonet import DemoNet
+from models.backbone.demoencoder import DemoEncoder
 from models.head.classifier import LinearDemoClassifier
 
 from datasets.brain import BrainProcessor, Brain
@@ -152,8 +152,18 @@ def main_worker(local_rank: int, config: object):
     if config.freeze_bn:
         freeze_bn(backbone)
 
+    # load data
+    data_processor = BrainProcessor(root=config.root,
+                                    data_info=config.data_info,
+                                    data_type=config.data_type,
+                                    mci_only=config.mci_only,
+                                    random_state=config.random_state)
+    datasets = data_processor.process(n_splits=config.n_splits, n_cv=config.n_cv)
+
+    wandb.config.update({"demo_columns": data_processor.demo_columns})
+
     # demo
-    demo_encoder = DemoNet(in_channels=7, hidden=config.hidden)
+    demo_encoder = DemoEncoder(in_channels=data_processor.num_demo_columns, hidden=config.hidden)
 
     # classifier
     if config.crop_size:
@@ -163,14 +173,6 @@ def main_worker(local_rank: int, config: object):
 
     classifier = LinearDemoClassifier(image_dims=out_dim, demo_dims=demo_encoder.out_features,
                                       num_classes=2, activation=activation)
-
-    # load data
-    data_processor = BrainProcessor(root=config.root,
-                                    data_info=config.data_info,
-                                    data_type=config.data_type,
-                                    mci_only=config.mci_only,
-                                    random_state=config.random_state)
-    datasets = data_processor.process(n_splits=config.n_splits, n_cv=config.n_cv)
 
     # intensity normalization
     assert config.intensity in [None, 'scale', 'minmax', 'normalize']

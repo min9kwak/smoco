@@ -25,7 +25,8 @@ class BrainProcessor(object):
         self.data_type = data_type
         self.random_state = random_state
         self.demo_columns = ['PTGENDER (1=male, 2=female)', 'Age', 'PTEDUCAT',
-                             'APOE Status', 'MMSCORE', 'CDGLOBAL', 'SUM BOXES']
+                             'APOE Status', 'MMSCORE']
+                             # , 'CDGLOBAL', 'SUM BOXES']
 
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'Conv': int})
         self.data_info = self.data_info.loc[self.data_info.IS_FILE]
@@ -98,18 +99,21 @@ class BrainProcessor(object):
         data_demo = self.data_info[['RID', 'Conv'] + self.demo_columns]
 
         # 1. Gender
-        data_demo_ = data_demo.copy()
-        data_demo_['PTGENDER (1=male, 2=female)'] = data_demo_['PTGENDER (1=male, 2=female)'] - 1
-        data_demo = data_demo_.copy()
+        if 'PTGENDER (1=male, 2=female)' in self.demo_columns:
+            data_demo_ = data_demo.copy()
+            data_demo_['PTGENDER (1=male, 2=female)'] = data_demo_['PTGENDER (1=male, 2=female)'] - 1
+            data_demo = data_demo_.copy()
 
         # 2. APOE Status
-        data_demo_ = data_demo.copy()
-        data_demo_.loc[:, 'APOE Status'] = data_demo['APOE Status'].fillna('NC')
-        data_demo_['APOE Status'] = [0 if a == 'NC' else 1 for a in data_demo_['APOE Status'].values]
-        data_demo = data_demo_.copy()
+        if 'APOE Status' in self.demo_columns:
+            data_demo_ = data_demo.copy()
+            data_demo_.loc[:, 'APOE Status'] = data_demo['APOE Status'].fillna('NC')
+            data_demo_['APOE Status'] = [0 if a == 'NC' else 1 for a in data_demo_['APOE Status'].values]
+            data_demo = data_demo_.copy()
 
         # 3. Others
         cols = ['MMSCORE', 'CDGLOBAL', 'SUM BOXES']
+        cols = [c for c in cols if c in self.demo_columns]
         records = data_demo.groupby('Conv').mean()[cols].to_dict()
 
         data_demo_ = data_demo.copy()
@@ -120,6 +124,7 @@ class BrainProcessor(object):
                 data_demo_.loc[i, col] = value
         data_demo = data_demo_.copy()
         self.data_info[self.demo_columns] = data_demo[self.demo_columns]
+        self.num_demo_columns = len(self.demo_columns)
 
     def parse_data(self, data_info):
         mri_files = [self.str2mri(p) if type(p) == str else p for p in data_info.MRI]

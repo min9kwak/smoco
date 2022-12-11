@@ -6,12 +6,12 @@ from models.backbone.base import BackboneBase
 from utils.initialization import initialize_weights
 
 
-class DemoNet(BackboneBase):
+class DemoEncoder(BackboneBase):
 
     def __init__(self,
                  in_channels: int,
                  hidden: str) -> None:
-        super(DemoNet, self).__init__(in_channels)
+        super(DemoEncoder, self).__init__(in_channels)
 
         self.in_channels = in_channels
         self.hidden = list(int(a) for a in hidden.split(','))
@@ -57,8 +57,8 @@ class DemoNet(BackboneBase):
 
 if __name__ == '__main__':
 
-    demonet_1 = DemoNet(7, "4")
-    demonet_2 = DemoNet(7, "3,3")
+    demonet_1 = DemoEncoder(7, "4")
+    demonet_2 = DemoEncoder(7, "3,3")
 
     from datasets.brain import BrainProcessor, Brain
     processor = BrainProcessor(root='D:/data/ADNI',
