@@ -157,8 +157,13 @@ class DemoFinetuneConfig(FinetuneConfig):
         super(FinetuneConfig, self).__init__(args, **kwargs)
 
     @staticmethod
-    def task_specific_parser() -> argparse.ArgumentParser:
-        parser = argparse.ArgumentParser('Classification', add_help=False)
+    def finetune_parser() -> argparse.ArgumentParser:
+        """Returns an `argparse.ArgumentParser` instance containing logging-related arguments."""
+        parser = argparse.ArgumentParser("Finetune", add_help=False)
+        parser.add_argument('--pretrained_dir', type=str, default=None, help='Path to pretrained model file (.pt).')
+        parser.add_argument('--freeze', action='store_true', help='Freeze weights of CNN backbone.')
+        parser.add_argument('--freeze_bn', action='store_true', help='Freeze BN weights of CNN backbone.')
+        parser.add_argument('--balance', action='store_true', help='apply class balance weight')
+        parser.add_argument('--finetune_trans', type=str, default='test', choices=('train', 'test'))
         parser.add_argument('--hidden', type=str, default="4,4")
-
         return parser
