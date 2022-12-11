@@ -2,6 +2,7 @@
 
 import os
 import sys
+import json
 import time
 import rich
 import numpy as np
@@ -11,14 +12,14 @@ import wandb
 import torch
 import torch.nn as nn
 
-from configs.classification import DemoClassificationConfig
+from configs.finetune import DemoFinetuneConfig
 from tasks.demo_classification import DemoClassification
 
 from models.backbone.base import calculate_out_features
 from models.backbone.densenet import DenseNetBackbone
 from models.backbone.resnet import build_resnet_backbone
-from models.head.classifier import LinearDemoClassifier
 from models.backbone.demonet import DemoNet
+from models.head.classifier import LinearDemoClassifier
 
 from datasets.brain import BrainProcessor, Brain
 from datasets.transforms import make_transforms
@@ -27,12 +28,50 @@ from utils.logging import get_rich_logger
 from utils.gpu import set_gpu
 
 
+def freeze_bn(module):
+    for name, child in module.named_children():
+        if isinstance(child, nn.BatchNorm3d):
+            for param in child.parameters():
+                param.requires_grad = False
+    for n, ch in module.named_children():
+        freeze_bn(ch)
+
+
 def main():
     """Main function for single/distributed linear classification."""
 
-    config = DemoClassificationConfig.parse_arguments()
+    config = DemoFinetuneConfig.parse_arguments()
 
-    config.task = config.data_type
+    pretrained_file = os.path.join(config.pretrained_dir, "ckpt.last.pth.tar")
+    setattr(config, 'pretrained_file', pretrained_file)
+
+    pretrained_config = os.path.join(config.pretrained_dir, "configs.json")
+    with open(pretrained_config, 'rb') as fb:
+        pretrained_config = json.load(fb)
+
+    # inherit pretrained configs
+    # TODO: use data_parser() for fine_tune augmentation
+    pretrained_config_names = [
+        # data_parser
+        'data_type', 'root', 'data_info', 'mci_only', 'n_splits', 'n_cv',
+        'image_size', 'small_kernel', 'random_state',
+        'intensity', 'crop', 'crop_size', 'rotate', 'flip', 'affine', 'blur', 'blur_std', 'prob',
+        # model_parser
+        'backbone_type', 'init_features', 'growth_rate', 'block_config', 'bn_size', 'dropout_rate',
+        'arch', 'no_max_pool',
+        # train
+        'batch_size',
+        # moco / supmoco
+        'alphas',
+        # others
+        'task'
+    ]
+
+    for name in pretrained_config_names:
+        if name in pretrained_config.keys():
+            setattr(config, name, pretrained_config[name])
+
+    config.task = config.task + f'_{config.finetune_type}_demo'
 
     set_gpu(config)
     num_gpus_per_node = len(config.gpus)
@@ -41,10 +80,6 @@ def main():
     setattr(config, 'num_gpus_per_node', num_gpus_per_node)
     setattr(config, 'world_size', world_size)
     setattr(config, 'distributed', distributed)
-
-    # str -> list arguments
-    if config.model_name == 'densenet':
-        setattr(config, 'block_config', tuple(int(a) for a in config.block_config.split(',')))
 
     rich.print(config.__dict__)
     config.save()
@@ -74,30 +109,33 @@ def main_worker(local_rank: int, config: object):
     config.batch_size = config.batch_size // config.world_size
     config.num_workers = config.num_workers // config.num_gpus_per_node
 
-    logfile = os.path.join(config.checkpoint_dir, 'main.log')
-    logger = get_rich_logger(logfile=logfile)
-    if config.enable_wandb:
-        wandb.init(
-            name=f'{config.model_name} : {config.hash}',
-            project=f'sttr-{config.task}-demo_classification',
-            config=config.__dict__
-        )
+    if local_rank == 0:
+        logfile = os.path.join(config.checkpoint_dir, 'main.log')
+        logger = get_rich_logger(logfile=logfile)
+        if config.enable_wandb:
+            wandb.init(
+                name=f'{config.backbone_type} : {config.hash}',
+                project=f'sttr-{config.task}',
+                config=config.__dict__
+            )
+    else:
+        logger = None
 
     # Networks
-    if config.model_name == 'densenet':
+    if config.backbone_type == 'densenet':
         backbone = DenseNetBackbone(in_channels=1,
                                     init_features=config.init_features,
                                     growth_rate=config.growth_rate,
                                     block_config=config.block_config,
                                     bn_size=config.bn_size,
                                     dropout_rate=config.dropout_rate,
-                                    semi=config.semi)
+                                    semi=False)
         activation = True
-    elif config.model_name == 'resnet':
+    elif config.backbone_type == 'resnet':
         backbone = build_resnet_backbone(arch=config.arch,
                                          no_max_pool=config.no_max_pool,
                                          in_channels=1,
-                                         semi=config.semi)
+                                         semi=False)
         activation = False
     else:
         raise NotImplementedError
@@ -105,12 +143,24 @@ def main_worker(local_rank: int, config: object):
     if config.small_kernel:
         backbone._fix_first_conv()
 
+    # load pretrained model weights
+    backbone.load_weights_from_checkpoint(path=config.pretrained_file, key='backbone')
+
+    if config.freeze:
+        backbone.freeze_weights()
+
+    if config.freeze_bn:
+        freeze_bn(backbone)
+
+    # demo
+    demo_encoder = DemoNet(in_channels=7, hidden=config.hidden)
+
+    # classifier
     if config.crop_size:
         out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.crop_size)
     else:
         out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
 
-    demo_encoder = DemoNet(in_channels=7, hidden=config.hidden)
     classifier = LinearDemoClassifier(image_dims=out_dim, demo_dims=demo_encoder.out_features,
                                       num_classes=2, activation=activation)
 
@@ -142,7 +192,8 @@ def main_worker(local_rank: int, config: object):
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 
-    train_set = Brain(dataset=datasets['train'], data_type=config.data_type, transform=train_transform)
+    finetune_transform = train_transform if config.finetune_trans == 'train' else test_transform
+    train_set = Brain(dataset=datasets['train'], data_type=config.data_type, transform=finetune_transform)
     test_set = Brain(dataset=datasets['test'], data_type=config.data_type, transform=test_transform)
 
     # Reconfigure batch-norm layers
@@ -153,7 +204,6 @@ def main_worker(local_rank: int, config: object):
         loss_function = nn.CrossEntropyLoss()
 
     # Model (Task)
-    # TODO: naming - demo_encoder -> demo_encoder
     model = DemoClassification(backbone=backbone, demo_encoder=demo_encoder, classifier=classifier)
     model.prepare(
         checkpoint_dir=config.checkpoint_dir,

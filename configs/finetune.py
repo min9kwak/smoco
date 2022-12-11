@@ -149,3 +149,16 @@ class FinetuneConfig(object):
         parser.add_argument('--balance', action='store_true', help='apply class balance weight')
         parser.add_argument('--finetune_trans', type=str, default='test', choices=('train', 'test'))
         return parser
+
+
+class DemoFinetuneConfig(FinetuneConfig):
+
+    def __init__(self, args=None, **kwargs):
+        super(FinetuneConfig, self).__init__(args, **kwargs)
+
+    @staticmethod
+    def task_specific_parser() -> argparse.ArgumentParser:
+        parser = argparse.ArgumentParser('Classification', add_help=False)
+        parser.add_argument('--hidden', type=str, default="4,4")
+
+        return parser
