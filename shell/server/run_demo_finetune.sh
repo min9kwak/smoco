@@ -2,13 +2,14 @@
 # D:/Dropbox/Data
 echo "Experiments Started"
 SERVER=dgx
-GPUS=0
+GPUS=1
 
 EPOCHS=10
 OPTIMIZER=adamw
 LEARNING_RATE=0.0001
 
 FINETUNE_TRANS=test
+HIDDEN="4"
 
 PRETRAINED_FILE_PRE="checkpoints/pet-supmoco/resnet/"
 HASH="2022-06-11_15-53-34"
@@ -34,7 +35,8 @@ do
       --enable_wandb \
       --pretrained_dir $PRETRAINED_DIR \
       --balance \
-      --finetune_trans $FINETUNE_TRANS
+      --finetune_trans $FINETUNE_TRANS \
+      --hidden=$HIDDEN
     done
   done
 done

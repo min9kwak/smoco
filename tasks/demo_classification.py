@@ -71,12 +71,14 @@ class DemoClassification(object):
         else:
             self.backbone.to(self.local_rank)
             self.classifier.to(self.local_rank)
+            self.demo_encoder.to(self.local_rank)
 
         # Optimization
         self.optimizer = get_optimizer(
             params=[
                 {'params': self.backbone.parameters()},
                 {'params': self.classifier.parameters()},
+                {'params': self.demo_encoder.parameters()}
             ],
             name=optimizer,
             lr=learning_rate,
