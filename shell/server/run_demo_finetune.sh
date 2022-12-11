@@ -20,7 +20,7 @@ do
     for EPOCHS in 10
     do
       PRETRAINED_DIR="${PRETRAINED_FILE_PRE}${HASH}"
-      python ./run_finetune.py \
+      python ./run_demo_finetune.py \
       --gpus $GPUS \
       --server $SERVER \
       --epochs $EPOCHS \
