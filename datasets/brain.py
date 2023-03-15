@@ -31,6 +31,9 @@ class BrainProcessor(object):
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'Conv': int})
         self.data_info = self.data_info.loc[self.data_info.IS_FILE]
 
+        # preprocess MC and Hippocampus Volume
+        self._preprocess_mc_hippo()
+
         # preprocess demo
         self._preprocess_demo()
 
@@ -94,6 +97,21 @@ class BrainProcessor(object):
 
         return datasets
 
+    def _preprocess_mc_hippo(self):
+
+        mc_table = pd.read_excel(os.path.join(self.root, 'labels/AV45_FBP_SUVR.xlsx'), sheet_name='list_id_SUVR_RSF')
+        mri_table = pd.read_csv(os.path.join(self.root, 'labels/MRI_BAI_features.csv'))
+
+        # MC
+        mc_table = mc_table.rename(columns={'ID': 'PET'})
+        self.data_info = pd.merge(left=self.data_info, right=mc_table[['PET', 'MC']], how='left', on='PET')
+        self.data_info['MC'] = 53.6 * self.data_info['MC'] - 43.2
+
+        # Hippocampus Volume
+        mri_table['MRI'] = mri_table['Filename'].str.split('/', expand=True).iloc[:, 1]
+        mri_table['Volume'] = mri_table['Left-Hippocampus'] + mri_table['Right-Hippocampus']
+        self.data_info = pd.merge(left=self.data_info, right=mri_table[['MRI', 'Volume']], how='left', on='MRI')
+
     def _preprocess_demo(self):
 
         data_demo = self.data_info[['RID', 'Conv'] + self.demo_columns]
@@ -130,8 +148,10 @@ class BrainProcessor(object):
         mri_files = [self.str2mri(p) if type(p) == str else p for p in data_info.MRI]
         pet_files = [self.str2pet(p) if type(p) == str else p for p in data_info.PET]
         demo = data_info[self.demo_columns].values
+        mc = data_info['MC'].values
+        volume = data_info['Volume'].values
         y = data_info.Conv.values
-        return dict(mri=mri_files, pet=pet_files, demo=demo, y=y)
+        return dict(mri=mri_files, pet=pet_files, demo=demo, mc=mc, volume=volume, y=y)
 
     def str2mri(self, i):
         return os.path.join(self.root, 'template/FS7', f'{i}.pkl')
@@ -149,6 +169,8 @@ class BrainBase(Dataset):
         self.mri = dataset['mri']
         self.pet = dataset['pet']
         self.demo = dataset['demo']
+        self.mc = dataset['mc']
+        self.volume = dataset['volume']
         self.y = dataset['y']
 
         assert data_type in ['mri', 'pet']
@@ -182,8 +204,10 @@ class Brain(BrainBase):
         if self.transform is not None:
             img = self.transform(img)
         demo = self.demo[idx]
+        mc = self.mc[idx]
+        volume = self.volume[idx]
         y = self.y[idx]
-        return dict(x=img, demo=demo, y=y, idx=idx)
+        return dict(x=img, demo=demo, mc=mc, volume=volume, y=y, idx=idx)
 
 
 class BrainMoCo(BrainBase):
@@ -198,8 +222,10 @@ class BrainMoCo(BrainBase):
         x1 = self.query_transform(img)
         x2 = self.key_transform(img)
         demo = self.demo[idx]
+        mc = self.mc[idx]
+        volume = self.volume[idx]
         y = self.y[idx]
-        return dict(x1=x1, x2=x2, demo=demo, y=y, idx=idx)
+        return dict(x1=x1, x2=x2, demo=demo, mc=mc, volume=volume, y=y, idx=idx)
 
 
 class BrainMixUp(BrainBase):
@@ -253,8 +279,8 @@ if __name__ == '__main__':
                                                       rotate=True,
                                                       flip=True,
                                                       prob=0.5)
-    train_set = BrainMixUp(dataset=datasets['train'], data_type='pet', transform=train_transform, alpha=0.3)
-    test_set = BrainMixUp(dataset=datasets['test'], data_type='pet', transform=test_transform, alpha=0.3)
+    train_set = Brain(dataset=datasets['train'], data_type='pet', transform=train_transform, alpha=0.3)
+    test_set = Brain(dataset=datasets['test'], data_type='pet', transform=test_transform, alpha=0.3)
 
     from datasets.samplers import ImbalancedDatasetSampler
     from torch.utils.data import DataLoader
@@ -263,55 +289,3 @@ if __name__ == '__main__':
                               sampler=train_sampler, drop_last=True)
     test_loader = DataLoader(dataset=test_set, batch_size=16 // 2,
                              drop_last=False)
-    for batch in test_loader:
-        print(batch.keys())
-
-        i = 0
-        x = batch['x'][i][0].numpy()
-        x_mix = batch['x_mix'][i][0].numpy()
-
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-        s = x.shape[0]
-
-        fig, axs = plt.subplots(2, 3, figsize=(24, 16))
-        axs = axs.ravel()
-        sns.heatmap(x[s//2, :, :], cmap='binary', ax=axs[0])
-        sns.heatmap(x[:, s//2, :], cmap='binary', ax=axs[1])
-        sns.heatmap(x[:, :, s//2], cmap='binary', ax=axs[2])
-        sns.heatmap(x_mix[s // 2, :, :], cmap='binary', ax=axs[3])
-        sns.heatmap(x_mix[:, s // 2, :], cmap='binary', ax=axs[4])
-        sns.heatmap(x_mix[:, :, s // 2], cmap='binary', ax=axs[5])
-        plt.tight_layout()
-        plt.show()
-        assert False
-
-    for batch in train_loader:
-
-        batch.keys()
-
-        i = 0
-        x = batch['x'][i][0].numpy()
-        x_mix = batch['x_mix'][i][0].numpy()
-
-        import matplotlib.pyplot as plt
-        import seaborn as sns
-
-        s = x.shape[0]
-
-        fig, axs = plt.subplots(2, 3, figsize=(24, 16))
-        axs = axs.ravel()
-        sns.heatmap(x[s // 2, :, :], cmap='binary', ax=axs[0])
-        sns.heatmap(x[:, s // 2, :], cmap='binary', ax=axs[1])
-        sns.heatmap(x[:, :, s // 2], cmap='binary', ax=axs[2])
-        sns.heatmap(x_mix[s // 2, :, :], cmap='binary', ax=axs[3])
-        sns.heatmap(x_mix[:, s // 2, :], cmap='binary', ax=axs[4])
-        sns.heatmap(x_mix[:, :, s // 2], cmap='binary', ax=axs[5])
-        plt.tight_layout()
-        plt.show()
-        break
-
-    for batch in train_loader:
-        x = torch.concat([batch['x'], batch['x_mix']], dim=0)
-        y = torch.concat([batch['y'], batch['y_mix']], dim=0)
-        break

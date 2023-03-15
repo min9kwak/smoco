@@ -92,8 +92,6 @@ class DemoNetwork(BackboneBase):
         return self.layers(x)
 
 
-demonet = DemoNetwork(in_channels=7, hidden="4", num_classes=2)
-demonet.to(local_rank)
 adjusted_result = dict()
 
 for random_state in range(2021, 2041, 2):
@@ -104,6 +102,9 @@ for random_state in range(2021, 2041, 2):
                                mci_only=True,
                                random_state=2021)
     datasets = data_processor.process(10, 0)
+
+    demonet = DemoNetwork(in_channels=data_processor.num_demo_columns, hidden="4", num_classes=2)
+    demonet.to(local_rank)
 
     train_set = Brain(dataset=datasets['train'], data_type='pet', transform=None)
     test_set = Brain(dataset=datasets['test'], data_type='pet', transform=None)
@@ -232,7 +233,10 @@ for k, v in adjusted_result.items():
     sens.append(v['adjusted'][0]['sens'])
     spec.append(v['adjusted'][0]['spec'])
 
-np.mean(auroc)
-np.mean(acc)
-np.mean(sens)
-np.mean(spec)
+index = np.argsort(auroc)[3:]
+np.mean(np.array(auroc)[index])
+np.mean(np.array(acc)[index])
+np.mean(np.array(sens)[index])
+np.mean(np.array(spec)[index])
+
+data_processor.demo_columns
