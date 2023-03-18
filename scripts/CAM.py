@@ -1,29 +1,69 @@
 import os
 import sys
 import json
+import time
+import rich
 import numpy as np
 import pickle
+import wandb
 import tqdm
 
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
+
+from configs.finetune import FinetuneConfig
+from tasks.classification import Classification
 
 from models.backbone.base import calculate_out_features
 from models.backbone.densenet import DenseNetBackbone
 from models.backbone.resnet import build_resnet_backbone
+from models.head.projector import MLPHead
 from models.head.classifier import LinearClassifier
 
-from datasets.brain import BrainProcessor, Brain
-from datasets.transforms import make_transforms
+from datasets.brain import BrainProcessor, Brain, BrainMoCo
+from datasets.transforms import make_transforms, compute_statistics
+
+from utils.logging import get_rich_logger
 from utils.gpu import set_gpu
 
 from easydict import EasyDict as edict
 from torch.utils.data import DataLoader
 
-import matplotlib.pyplot as plt
-from skimage.transform import resize
+from monai.visualize import (
+    CAM, # Compute class activation map from the last fully-connected layers before the spatial pooling
+    GradCAMpp,
+    OcclusionSensitivity,
+    SmoothGrad,
+    GuidedBackpropGrad,
+    GuidedBackpropSmoothGrad,
+)
 
-from monai.visualize import OcclusionSensitivity
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+class ModelViz(nn.Module):
+    def __init__(self, backbone, classifier, local_rank):
+        super(ModelViz, self).__init__()
+        self.local_rank = local_rank
+        self.backbone = backbone
+        self.classifier = classifier
+        self._build_model(self.backbone, self.classifier)
+
+    def _build_model(self, backbone, classifier):
+        self.backbone = backbone
+        self.classifier = classifier
+
+        self.backbone.to(self.local_rank)
+        self.classifier.to(self.local_rank)
+
+        self.backbone.eval()
+        self.classifier.eval()
+
+    def forward(self, x):
+        logits = self.classifier(self.backbone(x))
+        return logits
+
 
 sys.path.append('../')
 
@@ -54,29 +94,7 @@ gpus = ['0']
 server = 'main'
 
 
-class ModelViz(nn.Module):
-    def __init__(self, backbone, classifier, local_rank):
-        super(ModelViz, self).__init__()
-        self.local_rank = local_rank
-        self.backbone = backbone
-        self.classifier = classifier
-        self._build_model(self.backbone, self.classifier)
-
-    def _build_model(self, backbone, classifier):
-        self.backbone = backbone
-        self.classifier = classifier
-
-        self.backbone.to(self.local_rank)
-        self.classifier.to(self.local_rank)
-
-        self.backbone.eval()
-        self.classifier.eval()
-
-    def forward(self, x):
-        logits = self.classifier(self.backbone(x))
-        return logits
-
-# Individual Heatmap
+########
 config = edict()
 config.server = server
 config.gpus = gpus
@@ -112,7 +130,7 @@ for name in finetune_config_names:
     if name in finetune_config.keys():
         setattr(config, name, finetune_config[name])
 
-#########################################
+############
 set_gpu(config)
 np.random.seed(config.random_state)
 torch.manual_seed(config.random_state)
@@ -148,7 +166,7 @@ if config.crop_size:
     out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.crop_size)
 else:
     out_dim = calculate_out_features(backbone=backbone, in_channels=1, image_size=config.image_size)
-classifier = LinearClassifier(in_channels=out_dim, num_classes=2, activation=activation)
+classifier = LinearClassifier(in_channels=out_dim, num_classes=2, activation=True) #########
 
 backbone.load_weights_from_checkpoint(path=config.finetune_file, key='backbone')
 classifier.load_weights_from_checkpoint(path=config.finetune_file, key='classifier')
@@ -192,111 +210,99 @@ test_set = Brain(dataset=datasets['test'], data_type=config.data_type, transform
 train_loader = DataLoader(dataset=train_set, batch_size=1, drop_last=False)
 test_loader = DataLoader(dataset=test_set, batch_size=1, drop_last=False)
 
-#########
-for mask_size in [8, 4]:
+######
+model = ModelViz(backbone, classifier, local_rank)
 
-    model = ModelViz(backbone=backbone, classifier=classifier, local_rank=local_rank)
-    import torch.optim as optim
-    optimizer = optim.AdamW(model.parameters())
-    model.eval()
+import torch.optim as optim
+from skimage.transform import resize
 
-    for mode, dset, loader in zip(['train', 'test'], [train_set, test_set], [train_loader, test_loader]):
+optimizer = optim.AdamW(model.parameters())
+model.eval()
 
-        if mode == 'test':
+for mode, dset, loader in zip(['train', 'test'], [train_set, test_set], [train_loader, test_loader]):
 
-            if type(hash) == tuple:
-                path = f'occlusion/{mask_size}/{hash[0]}-{hash[1]}/{mode}'
-            else:
-                path = f'occlusion/{mask_size}/{hash}/{mode}'
-            for status in ['converter', 'nonconverter']:
-                for reversed in ['original', 'reverse']:
-                    for log in ['original', 'log']:
-                        os.makedirs(os.path.join(path, status, reversed, log), exist_ok=True)
+    if mode == 'test':
+        if type(hash) == tuple:
+            path = f'cam/{hash[0]}-{hash[1]}/{mode}'
+        else:
+            path = f'cam/{hash}/{mode}'
 
-            for batch in tqdm.tqdm(loader):
-                x = batch['x'].to(local_rank)
-                idx = batch['idx'].item()
-                logit = model(x)
-                logit = logit.detach()
+        for status in ['converter', 'nonconverter']:
+            for reversed in ['original', 'reverse']:
+                for log in ['original', 'log']:
+                    os.makedirs(os.path.join(path, status, reversed, log), exist_ok=True)
 
-                # correctly classified
-                if batch['y'].item() == logit.argmax().item():
+        for batch in tqdm.tqdm(loader):
+            x = batch['x'].to(local_rank)
+            idx = batch['idx'].item()
+            logit = model(x)
+            logit = logit.detach()
 
-                    optimizer.zero_grad()
+            # correctly classified
+            if batch['y'].item() == logit.argmax().item():
 
-                    pet_file = dset.pet[idx]
-                    pet_id = pet_file.split('/')[-1].replace('.pkl', '')
-                    with open(pet_file, 'rb') as fb:
-                        pet = pickle.load(fb)
-                    mask = pet <= 0
+                optimizer.zero_grad()
 
-                    # status & confidence
-                    if batch['y'].item() == 0:
-                        status = 'nonconverter'
-                    else:
-                        status = 'converter'
-                    confidence = "{:.3f}".format(logit.softmax(dim=1)[0, batch['y'].item()].item())
+                pet_file = dset.pet[idx]
+                pet_id = pet_file.split('/')[-1].replace('.pkl', '')
+                with open(pet_file, 'rb') as fb:
+                    pet = pickle.load(fb)
+                mask = pet <= 0
 
-                    # occlusion sensitivity
-                    occ_map_list = {
-                        'original/original': [],
-                        'original/log': [],
-                        'reverse/original': [],
-                        'reverse/log': []
-                    }
+                # status & confidence
+                if batch['y'].item() == 0:
+                    status = 'nonconverter'
+                else:
+                    status = 'converter'
+                confidence = "{:.3f}".format(logit.softmax(dim=1)[0, batch['y'].item()].item())
 
-                    for mask_val in tqdm.tqdm(np.arange(0.0, 0.31, 0.02)):
-                        occ_sens = OcclusionSensitivity(model,
-                                                        mask_size=mask_size,
-                                                        n_batch=1,
-                                                        mode=mask_val,
-                                                        overlap=0.25,
-                                                        verbose=False)
+                # CAM
+                cam_map_list = {
+                    'original/original': None,
+                    'original/log': None,
+                    'reverse/original': None,
+                    'reverse/log': None
+                }
 
-                        occ_map = occ_sens(x)
-                        occ_map = occ_map[0][0][batch['y'], ...][0]
+                cam = CAM(nn_module=model,
+                          target_layers='classifier.layers.relu',
+                          fc_layers='classifier.layers.linear')
+                cam_map = cam(x)
+                cam_map = cam_map[0][0].detach().cpu().numpy()
+                cam_map_log = np.log(1 + cam_map)
 
-                        occ_map = occ_map.detach().cpu().numpy()
-                        occ_map_log = np.log(1 + occ_map)
+                cam_map_rev = np.abs(1 - cam_map)
+                cam_map_rev_log = np.log(1 + cam_map_rev)
 
-                        occ_map_rev = np.abs(1 - occ_map)
-                        occ_map_rev_log = np.log(1 + occ_map_rev)
+                cam_map_list['original/original'] = cam_map
+                cam_map_list['original/log'] = cam_map_log
+                cam_map_list['reverse/original'] = cam_map_rev
+                cam_map_list['reverse/log'] = cam_map_rev_log
 
-                        occ_map_list['original/original'].append(occ_map)
-                        occ_map_list['original/log'].append(occ_map_log)
-                        occ_map_list['reverse/original'].append(occ_map_rev)
-                        occ_map_list['reverse/log'].append(occ_map_rev_log)
+                for k, v in cam_map_list.items():
 
-                    for k, v in occ_map_list.items():
+                    # heatmap
+                    img = resize(v, [145, 145, 145])
 
-                        std_val = np.std(v, axis=0)
-                        cutoff = np.percentile(std_val.reshape(-1, ), 90)
+                    fig, axs = plt.subplots(3, 3, figsize=(15, 15))
+                    axs[0, 0].imshow(pet[72, :, :], cmap='binary')
+                    axs[0, 1].imshow(img[72, :, :], cmap='jet')
+                    axs[0, 2].imshow(pet[72, :, :], cmap='binary')
+                    axs[0, 2].imshow(img[72, :, :], cmap='jet', alpha=0.5)
 
-                        m = np.mean(v, axis=0)
-                        m[std_val < cutoff] = np.nan
+                    axs[1, 0].imshow(pet[:, 72, :], cmap='binary')
+                    axs[1, 1].imshow(img[:, 72, :], cmap='jet')
+                    axs[1, 2].imshow(pet[:, 72, :], cmap='binary')
+                    axs[1, 2].imshow(img[:, 72, :], cmap='jet', alpha=0.5)
 
-                        # heatmap
-                        img = resize(m, [145, 145, 145])
-
-                        fig, axs = plt.subplots(3, 3, figsize=(15, 15))
-                        axs[0, 0].imshow(pet[72, :, :], cmap='binary')
-                        axs[0, 1].imshow(img[72, :, :], cmap='jet')
-                        axs[0, 2].imshow(pet[72, :, :], cmap='binary')
-                        axs[0, 2].imshow(img[72, :, :], cmap='jet', alpha=0.5)
-
-                        axs[1, 0].imshow(pet[:, 72, :], cmap='binary')
-                        axs[1, 1].imshow(img[:, 72, :], cmap='jet')
-                        axs[1, 2].imshow(pet[:, 72, :], cmap='binary')
-                        axs[1, 2].imshow(img[:, 72, :], cmap='jet', alpha=0.5)
-
-                        axs[2, 0].imshow(pet[:, :, 90], cmap='binary')
-                        axs[2, 1].imshow(img[:, :, 90], cmap='jet')
-                        axs[2, 2].imshow(pet[:, :, 90], cmap='binary')
-                        axs[2, 2].imshow(img[:, :, 90], cmap='jet', alpha=0.5)
-                        pet_id_ = pet_id.split('\\')[1]
-                        plt.savefig(
-                            os.path.join(path, status, k) + f'/{pet_id_}-{confidence}.png',
-                            dpi=300,
-                            bbox_inches='tight'
-                        )
-                        plt.close()
+                    axs[2, 0].imshow(pet[:, :, 90], cmap='binary')
+                    axs[2, 1].imshow(img[:, :, 90], cmap='jet')
+                    axs[2, 2].imshow(pet[:, :, 90], cmap='binary')
+                    axs[2, 2].imshow(img[:, :, 90], cmap='jet', alpha=0.5)
+                    pet_id_ = pet_id.split('\\')[1]
+                    plt.savefig(
+                        os.path.join(path, status, k) + f'/{pet_id_}-{confidence}.png',
+                        dpi=300,
+                        bbox_inches='tight'
+                    )
+                    plt.close()

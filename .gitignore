@@ -132,6 +132,7 @@ dmypy.json
 checkpoints/
 documents/
 meetings/
+cam/
 gcam/
 occlusion/
 papers/

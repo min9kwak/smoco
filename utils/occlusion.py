@@ -50,7 +50,7 @@ class OcclusionSensitivity:
 
     .. code-block:: python
 
-        # densenet 2d
+        # densenet slice
         from monai.networks.nets import DenseNet121
         from monai.visualize import OcclusionSensitivity
         import torch
