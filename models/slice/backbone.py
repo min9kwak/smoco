@@ -45,7 +45,10 @@ class ResNetBackbone(BackboneBase):
         super(ResNetBackbone, self).__init__(in_channels)
 
         self.name = name  # resnet18, resnet50, resnet101
-        self.layers = RESNET_FUNCTIONS[self.name](weights=None)
+        try:
+            self.layers = RESNET_FUNCTIONS[self.name](weights=None)
+        except:
+            self.layers = RESNET_FUNCTIONS[self.name](pretrained=False)
 
         self.layers = self._remove_gap_and_fc(self.layers)
         if self.in_channels != 3:
