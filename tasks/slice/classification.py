@@ -65,7 +65,7 @@ class SliceClassification(object):
         self.config = kwargs.get('config', None)
 
         if self.config.train_slices == 'random':
-            self.test_num_slices = self.config.num_slices
+            self.test_num_slices = 3
         elif self.config.train_slices == 'fixed':
             self.test_num_slices = 3
         elif self.config.train_slices in ['sagittal', 'coronal', 'axial']:

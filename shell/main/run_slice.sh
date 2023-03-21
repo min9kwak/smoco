@@ -1,6 +1,6 @@
 echo "Experiments Started"
-SERVER=workstation2
-GPUS=00
+SERVER=main
+GPUS=0
 
 DATA_TYPE=pet
 N_SPLITS=10
@@ -13,9 +13,9 @@ INTENSITY=scale
 EPOCHS=100
 BATCH_SIZE=16
 OPTIMIZER=adamw
-LEARNING_RATE=0.001
+LEARNING_RATE=0.0001
 
-TRAIN_SLICES=random
+TRAIN_SLICES=sagittal
 NUM_SLICES=5
 SLICE_RANGE=0.15
 
@@ -27,12 +27,13 @@ do
 		--gpus $GPUS \
 		--server $SERVER \
 		--data_type $DATA_TYPE \
-		--root /raidWorkspace/mingu/Data/ADNI \
+		--root D:/data/ADNI \
 		--data_info labels/data_info.csv \
 		--mci_only \
 		--n_splits $N_SPLITS \
 		--n_cv $N_CV \
 		--image_size $IMAGE_SIZE \
+		--small_kernel \
 		--random_state $RANDOM_STATE \
 		--intensity $INTENSITY \
 		--flip \
