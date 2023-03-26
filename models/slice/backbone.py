@@ -214,6 +214,15 @@ class WideBackbone(BackboneBase):
         return 128
 
 
+def relu_inplace_false(module):
+    for attr_str in dir(module):
+        target_attr = getattr(module, attr_str)
+        if isinstance(target_attr, nn.ReLU):
+            setattr(module, attr_str, nn.ReLU(inplace=False))
+    for n, ch in module.named_children():
+        relu_inplace_false(ch)
+
+
 if __name__ == '__main__':
 
     import torch

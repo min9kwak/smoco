@@ -17,13 +17,11 @@ from utils.optimization import get_cosine_scheduler
 
 class SliceClassification(object):
     def __init__(self,
-                 backbone: nn.Module,
-                 classifier: nn.Module,
+                 network: nn.Module,
                  ):
 
         # network
-        self.backbone = backbone
-        self.classifier = classifier
+        self.network = network
 
         # optimizer
         self.scaler = None
@@ -77,14 +75,12 @@ class SliceClassification(object):
         if distributed:
             raise NotImplementedError
         else:
-            self.backbone.to(self.local_rank)
-            self.classifier.to(self.local_rank)
+            self.network.to(self.local_rank)
 
         # Optimization
         self.optimizer = get_optimizer(
             params=[
-                {'params': self.backbone.parameters()},
-                {'params': self.classifier.parameters()},
+                {'params': self.network.parameters()},
             ],
             name=optimizer,
             lr=learning_rate,
@@ -131,7 +127,7 @@ class SliceClassification(object):
         best_epoch = 0
 
         if self.enable_wandb:
-            wandb.watch([self.backbone, self.classifier], log='all', log_freq=len(train_loader))
+            wandb.watch([self.network], log='all', log_freq=len(train_loader))
 
         for epoch in range(1, epochs + 1):
 
@@ -227,7 +223,7 @@ class SliceClassification(object):
                     x = torch.concat(batch['x']).float().to(self.local_rank)
                     y = batch['y'].repeat(self.config.num_slices).to(self.local_rank)
 
-                    logits = self.classifier(self.backbone(x))
+                    logits = self.network(x)
                     loss = self.loss_function(logits, y.long())
                     if self.scaler is not None:
                         self.scaler.scale(loss).backward()
@@ -283,7 +279,7 @@ class SliceClassification(object):
             x = torch.concat(batch['x']).float().to(self.local_rank)
             y = batch['y'].repeat(self.test_num_slices).to(self.local_rank)
 
-            logits = self.classifier(self.backbone(x))
+            logits = self.network(x)
             loss = self.loss_function(logits, y.long())
 
             result['loss'][i] = loss.detach()
@@ -311,16 +307,13 @@ class SliceClassification(object):
 
     def _set_learning_phase(self, train=False):
         if train:
-            self.backbone.train()
-            self.classifier.train()
+            self.network.train()
         else:
-            self.backbone.eval()
-            self.classifier.eval()
+            self.network.eval()
 
     def save_checkpoint(self, path: str, **kwargs):
         ckpt = {
-            'backbone': self.backbone.state_dict(),
-            'classifier': self.classifier.state_dict(),
+            'network': self.network.state_dict(),
             'optimizer': self.optimizer.state_dict(),
         }
         if kwargs:
@@ -329,8 +322,7 @@ class SliceClassification(object):
 
     def load_model_from_checkpoint(self, path: str):
         ckpt = torch.load(path)
-        self.backbone.load_state_dict(ckpt['backbone'])
-        self.classifier.load_state_dict(ckpt['classifier'])
+        self.network.load_state_dict(ckpt['network'])
         self.optimizer.load_state_dict(ckpt['optimizer'])
 
     @staticmethod

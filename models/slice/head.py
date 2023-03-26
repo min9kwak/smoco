@@ -145,3 +145,46 @@ class LinearClassifier(LinearHead):
     @property
     def num_classes(self):
         return self.num_features
+
+
+class SHAPClassifier(GAPHeadBase):
+    def __init__(self, in_channels: int, num_classes: int, dropout: float = 0.0):
+        """
+        Arguments:
+            in_channels: int, number of input feature maps.
+            num_features: int, number of output features.
+        """
+        super(SHAPClassifier, self).__init__(in_channels, num_classes)
+
+        self.in_channels = in_channels
+        self.num_classes = num_classes
+        self.dropout = dropout
+        self.layers = self.make_layers(
+            in_channels=self.in_channels,
+            num_classes=self.num_classes,
+            dropout=self.dropout,
+        )
+        initialize_weights(self.layers)
+
+    @staticmethod
+    def make_layers(in_channels: int, num_classes: int, dropout: float = 0.0):
+        layers = nn.Sequential(
+            collections.OrderedDict(
+                [
+                    ('dropout', nn.Dropout(p=dropout)),
+                    ('linear', nn.Linear(in_channels, num_classes))
+                ]
+            )
+        )
+
+        return layers
+
+    def forward(self, x: torch.Tensor):
+        out = nn.AdaptiveAvgPool2d(1)(x)
+        out = out.view(out.size(0), -1)
+        out = self.layers(out)
+        return out
+
+    @property
+    def num_parameters(self):
+        return sum(p.numel() for p in self.parameters() if p.requires_grad)

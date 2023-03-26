@@ -14,7 +14,7 @@ import torch.nn as nn
 from configs.slice.classification import SliceClassificationConfig
 from tasks.slice.classification import SliceClassification
 
-from models.slice.backbone import ResNetBackbone
+from models.slice.resnet import resnet50, resnet18
 from models.slice.head import LinearClassifier
 
 from datasets.brain import BrainProcessor, Brain
@@ -84,10 +84,19 @@ def main_worker(local_rank: int, config: object):
         )
 
     # Networks
-    backbone = ResNetBackbone(name=config.backbone_type, in_channels=1)
-    classifier = LinearClassifier(in_channels=backbone.out_channels, num_classes=2)
+    if config.backbone_type == 'resnet50':
+        # TODO: initialization
+        network = resnet50(num_classes=2)
+    elif config.backbone_type == 'resnet18':
+        network = resnet18(num_classes=2)
+    else:
+        raise ValueError
+    network.conv1 = nn.Conv2d(1, 64, kernel_size=7, stride=2, padding=3, bias=False)
+
     if config.small_kernel:
-        backbone._fix_first_conv()
+        conv1 = network.conv1
+        network.conv1 = nn.Conv2d(conv1.in_channels, conv1.out_channels,
+                                  kernel_size=3, stride=1, padding=1, bias=False)
 
     # load data
     data_processor = BrainProcessor(root=config.root,
@@ -120,7 +129,7 @@ def main_worker(local_rank: int, config: object):
         loss_function = nn.CrossEntropyLoss()
 
     # Model (Task)
-    model = SliceClassification(backbone=backbone, classifier=classifier)
+    model = SliceClassification(network=network)
     model.prepare(
         checkpoint_dir=config.checkpoint_dir,
         loss_function=loss_function,

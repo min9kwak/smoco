@@ -19,9 +19,9 @@ TRAIN_SLICES=sagittal
 NUM_SLICES=5
 SLICE_RANGE=0.15
 
-for RANDOM_STATE in 2021 2023 2025
+for TRAIN_SLICES in fixed sagittal
 do
-	for LEARNING_RATE in 0.0001
+	for EPOCHS in 50 100
 	do
 		python ./run_slice_classification.py \
 		--gpus $GPUS \
