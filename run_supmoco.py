@@ -160,9 +160,14 @@ def main_worker(local_rank: int, config: object):
                                                       blur_std=config.blur_std,
                                                       prob=config.prob)
 
-    train_set = {'mri': datasets['train']['mri'] + datasets['u_train']['mri'],
-                 'pet': datasets['train']['pet'] + datasets['u_train']['pet'],
-                 'y': np.concatenate([datasets['train']['y'], datasets['u_train']['y']])}
+    train_set = {}
+    for key in datasets['train'].keys():
+        if isinstance(datasets['train'][key], list):
+            train_set[key] = datasets['train'][key] + datasets['u_train'][key]
+        elif isinstance(datasets['train'][key], np.ndarray):
+            train_set[key] = np.concatenate([datasets['train'][key], datasets['u_train'][key]])
+        else:
+            raise TypeError
     train_set = BrainMoCo(dataset=train_set, data_type=config.data_type,
                           query_transform=train_transform, key_transform=train_transform)
     eval_set = Brain(dataset=datasets['train'], data_type=config.data_type, transform=test_transform)

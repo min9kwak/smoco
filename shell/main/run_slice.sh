@@ -5,7 +5,7 @@ GPUS=0
 DATA_TYPE=pet
 N_SPLITS=10
 N_CV=0
-IMAGE_SIZE=72
+IMAGE_SIZE=145
 RANDOM_STATE=2021
 
 INTENSITY=scale
@@ -19,9 +19,9 @@ TRAIN_SLICES=sagittal
 NUM_SLICES=5
 SLICE_RANGE=0.15
 
-for TRAIN_SLICES in fixed sagittal
+for TRAIN_SLICES in random
 do
-	for EPOCHS in 50 100
+	for EPOCHS in 100
 	do
 		python ./run_slice_classification.py \
 		--gpus $GPUS \

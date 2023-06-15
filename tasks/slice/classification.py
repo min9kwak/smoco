@@ -245,7 +245,6 @@ class SliceClassification(object):
                 # save true / pred (actual number of observations)
                 y_true.append(y.chunk(self.config.num_slices)[0].long())
                 num_classes = logits.shape[-1]
-                logits = logits.softmax(1)
                 logits = logits.reshape(self.config.num_slices, -1, num_classes).mean(0)
                 y_pred.append(logits)
 
@@ -287,7 +286,6 @@ class SliceClassification(object):
             # save true / pred (actual number of observations)
             y_true.append(y.chunk(self.test_num_slices)[0].long())
             num_classes = logits.shape[-1]
-            logits = logits.softmax(1)
             logits = logits.reshape(self.test_num_slices, -1, num_classes).mean(0)
             y_pred.append(logits)
 

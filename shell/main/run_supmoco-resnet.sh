@@ -1,6 +1,6 @@
 echo "Experiments Started"
-SERVER=workstation2
-GPUS=00
+SERVER=main
+GPUS=0
 
 DATA_TYPE=pet
 N_SPLITS=10
@@ -35,7 +35,7 @@ do
 		--gpus $GPUS \
 		--server $SERVER \
 		--data_type $DATA_TYPE \
-		--root /raidWorkspace/mingu/Data/ADNI \
+		--root D:/data/ADNI \
 		--data_info labels/data_info.csv \
 		--mci_only \
 		--n_splits $N_SPLITS \

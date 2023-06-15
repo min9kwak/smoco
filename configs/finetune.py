@@ -299,4 +299,8 @@ class DemoFinetuneConfig(object):
         parser.add_argument('--balance', action='store_true', help='apply class balance weight')
         parser.add_argument('--finetune_trans', type=str, default='test', choices=('train', 'test'))
         parser.add_argument('--hidden', type=str, default="4,4")
+
+        parser.add_argument('--add_apoe', action='store_true')
+        parser.add_argument('--add_volume', action='store_true')
+
         return parser

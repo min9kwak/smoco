@@ -1,3 +1,5 @@
+import pandas as pd
+
 import os
 import sys
 import json
@@ -193,25 +195,34 @@ for hash in hashs:
 
     ##############
     # save individual
-    mode = 'train'
-    dset = train_set
-    loader = train_loader
+    for mode in ['train', 'test']:
+        if mode == 'train':
+            dset = train_set
+            loader = train_loader
+        else:
+            dset = test_set
+            loader = test_loader
 
-    for layer in ['layer1', 'layer2']:
+    # for layer in ['layer1']:
+        layer = 'layer1'
+        fig_count = 0
 
         gcam = GradCAMpp(model, f'backbone.{layer}')
-        path = f'gcam/{layer}/{hash}/{mode}'
-        os.makedirs(path + '-converter', exist_ok=True)
-        os.makedirs(path + '-nonconverter', exist_ok=True)
+        path = f'gcam-finfin/{layer}/{hash}/{mode}'
+        # os.makedirs(path + '-converter', exist_ok=True)
+        # os.makedirs(path + '-nonconverter', exist_ok=True)
         os.makedirs(path + '-converter-reverse', exist_ok=True)
         os.makedirs(path + '-nonconverter-reverse', exist_ok=True)
 
-        average_map = {
-            'converter': {'map': [], 'confidence': []},
-            'nonconverter': {'map': [], 'confidence': []}
-        }
+        # average_map = {
+        #     'converter': {'map': [], 'confidence': []},
+        #     'nonconverter': {'map': [], 'confidence': []}
+        # }
 
         for batch in tqdm.tqdm(loader):
+
+            if fig_count == 50:
+                continue
 
             x = batch['x'].to(local_rank)
             idx = batch['idx'].item()
@@ -223,7 +234,7 @@ for hash in hashs:
             # correctly classified
             if batch['y'].item() == logit.argmax().item():
 
-                for reverse in ['-reverse', '']:
+                for reverse in ['-reverse']:
 
                     optimizer.zero_grad()
 
@@ -231,6 +242,7 @@ for hash in hashs:
                     gcam_map = gcam_map.cpu().numpy()[0][0]
                     if reverse == '-reverse':
                         gcam_map = np.abs(1 - gcam_map)
+                        gcam_map = np.log(1 + gcam_map)
 
                     if not np.isnan(gcam_map).any():
                         # status
@@ -245,51 +257,137 @@ for hash in hashs:
                         with open(pet_file, 'rb') as fb:
                             pet = pickle.load(fb)
 
+                        # MRI
+                        data_info = pd.read_csv("D:/data/ADNI/labels/data_info.csv")
+                        mri_id = data_info.loc[data_info['PET'] == pet_id]['MRI'].item()
+                        mri_path = f"D:/data/ADNI/template/FS7/{mri_id}.pkl"
+                        with open(mri_path, 'rb') as fb:
+                            mri = pickle.load(fb)
+
                         mask = pet <= 0
 
                         gcam_map = resize(gcam_map, [145, 145, 145])
-                        average_map[status]['map'].append(gcam_map)
-                        average_map[status]['confidence'].append(confidence)
+                        # average_map[status]['map'].append(gcam_map)
+                        # average_map[status]['confidence'].append(confidence)
                         gcam_map[mask] = np.nan
                         confidence_ = "{:.3f}".format(confidence)
+                        mri[mask] = np.nan
+                        pet[mask] = np.nan
 
-                        fig, axs = plt.subplots(3, 2, figsize=(10, 15))
-                        axs[0, 0].imshow(pet[72, :, :], cmap='binary')
-                        axs[0, 1].imshow(gcam_map[72, :, :], cmap='jet')
+                        # 1
+                        fig, axs = plt.subplots(3, 3, figsize=(15, 15))
 
-                        axs[1, 0].imshow(pet[:, 72, :], cmap='binary')
-                        axs[1, 1].imshow(gcam_map[:, 72, :], cmap='jet')
+                        axs[0, 0].imshow(np.rot90(mri[72, :, :]), cmap='binary')
+                        axs[0, 1].imshow(np.rot90(pet[72, :, :]), cmap='binary')
+                        axs[0, 2].imshow(np.rot90(pet[72, :, :]), cmap='binary')
+                        axs[0, 2].imshow(np.rot90(gcam_map[72, :, :]), cmap='jet', alpha=0.3)
 
-                        axs[2, 0].imshow(pet[:, :, 90], cmap='binary')
-                        axs[2, 1].imshow(gcam_map[:, :, 90], cmap='jet')
+                        axs[1, 0].imshow(np.rot90(mri[:, 72, :]), cmap='binary')
+                        axs[1, 1].imshow(np.rot90(pet[:, 72, :]), cmap='binary')
+                        axs[1, 2].imshow(np.rot90(pet[:, 72, :]), cmap='binary')
+                        axs[1, 2].imshow(np.rot90(gcam_map[:, 72, :]), cmap='jet', alpha=0.3)
+
+                        axs[2, 0].imshow(np.rot90(mri[:, :, 90]), cmap='binary')
+                        axs[2, 1].imshow(np.rot90(pet[:, :, 90]), cmap='binary')
+                        axs[2, 2].imshow(np.rot90(pet[:, :, 90]), cmap='binary')
+                        axs[2, 2].imshow(np.rot90(gcam_map[:, :, 90]), cmap='jet', alpha=0.3)
+
+                        for ax in axs:
+                            for ax_ in ax:
+                                ax_.axis('off')
+
                         plt.savefig(
-                            path + '-' + status + reverse + f'/{pet_id}-{confidence_}.png',
+                            path + '-' + status + reverse + f'/{pet_id}-{confidence_}-pet.png',
                             dpi=300,
                             bbox_inches='tight'
                         )
                         plt.close()
 
-        for status in ['converter', 'nonconverter']:
-            gcam_map = [m * c for m, c in zip(average_map[status]['map'], average_map[status]['confidence'])]
-            gcam_map = np.sum(gcam_map, axis=0) / np.sum(average_map['converter']['confidence'])
+                        # 2
+                        fig, axs = plt.subplots(3, 3, figsize=(15, 15))
 
-            for reverse in ['', '-reverse']:
+                        axs[0, 0].imshow(np.rot90(mri[72, :, :]), cmap='binary')
+                        axs[0, 1].imshow(np.rot90(pet[72, :, :]), cmap='binary')
+                        axs[0, 2].imshow(np.rot90(pet[72, :, :]), cmap='binary')
+                        axs[0, 2].imshow(np.rot90(gcam_map[72, :, :]), cmap='jet', alpha=0.3)
 
-                if reverse == '-reverse':
-                    gcam_map = np.abs(1 - gcam_map)
+                        axs[1, 0].imshow(np.rot90(mri[:, 72, :]), cmap='binary')
+                        axs[1, 1].imshow(np.rot90(pet[:, 72, :]), cmap='binary')
+                        axs[1, 2].imshow(np.rot90(pet[:, 72, :]), cmap='binary')
+                        axs[1, 2].imshow(np.rot90(gcam_map[:, 72, :]), cmap='jet', alpha=0.3)
 
-                fig, axs = plt.subplots(3, 2, figsize=(10, 15))
-                axs[0, 0].imshow(pet[72, :, :], cmap='binary')
-                axs[0, 1].imshow(gcam_map[72, :, :], cmap='jet')
+                        axs[2, 0].imshow(np.rot90(mri[:, :, 72]), cmap='binary')
+                        axs[2, 1].imshow(np.rot90(pet[:, :, 72]), cmap='binary')
+                        axs[2, 2].imshow(np.rot90(pet[:, :, 72]), cmap='binary')
+                        axs[2, 2].imshow(np.rot90(gcam_map[:, :, 72]), cmap='jet', alpha=0.3)
 
-                axs[1, 0].imshow(pet[:, 72, :], cmap='binary')
-                axs[1, 1].imshow(gcam_map[:, 72, :], cmap='jet')
+                        for ax in axs:
+                            for ax_ in ax:
+                                ax_.axis('off')
 
-                axs[2, 0].imshow(pet[:, :, 90], cmap='binary')
-                axs[2, 1].imshow(gcam_map[:, :, 90], cmap='jet')
-                plt.savefig(
-                    path + '-' + status + reverse + f'/average.png',
-                    dpi=300,
-                    bbox_inches='tight'
-                )
-                plt.close()
+                        plt.savefig(
+                            path + '-' + status + reverse + f'/{pet_id}-{confidence_}-center-pet.png',
+                            dpi=300,
+                            bbox_inches='tight'
+                        )
+                        plt.close()
+
+                        # 3
+                        fig, axs = plt.subplots(3, 3, figsize=(15, 15))
+
+                        axs[0, 0].imshow(np.rot90(mri[72, :, :]), cmap='binary')
+                        axs[0, 1].imshow(np.rot90(pet[72, :, :]), cmap='binary')
+                        axs[0, 2].imshow(np.rot90(mri[72, :, :]), cmap='binary')
+                        axs[0, 2].imshow(np.rot90(gcam_map[72, :, :]), cmap='jet', alpha=0.3)
+
+                        axs[1, 0].imshow(np.rot90(mri[:, 72, :]), cmap='binary')
+                        axs[1, 1].imshow(np.rot90(pet[:, 72, :]), cmap='binary')
+                        axs[1, 2].imshow(np.rot90(mri[:, 72, :]), cmap='binary')
+                        axs[1, 2].imshow(np.rot90(gcam_map[:, 72, :]), cmap='jet', alpha=0.3)
+
+                        axs[2, 0].imshow(np.rot90(mri[:, :, 90]), cmap='binary')
+                        axs[2, 1].imshow(np.rot90(pet[:, :, 90]), cmap='binary')
+                        axs[2, 2].imshow(np.rot90(mri[:, :, 90]), cmap='binary')
+                        axs[2, 2].imshow(np.rot90(gcam_map[:, :, 90]), cmap='jet', alpha=0.3)
+
+                        for ax in axs:
+                            for ax_ in ax:
+                                ax_.axis('off')
+
+                        plt.savefig(
+                            path + '-' + status + reverse + f'/{pet_id}-{confidence_}-mri.png',
+                            dpi=300,
+                            bbox_inches='tight'
+                        )
+                        plt.close()
+
+                        # 4
+                        fig, axs = plt.subplots(3, 3, figsize=(15, 15))
+
+                        axs[0, 0].imshow(np.rot90(mri[72, :, :]), cmap='binary')
+                        axs[0, 1].imshow(np.rot90(pet[72, :, :]), cmap='binary')
+                        axs[0, 2].imshow(np.rot90(mri[72, :, :]), cmap='binary')
+                        axs[0, 2].imshow(np.rot90(gcam_map[72, :, :]), cmap='jet', alpha=0.3)
+
+                        axs[1, 0].imshow(np.rot90(mri[:, 72, :]), cmap='binary')
+                        axs[1, 1].imshow(np.rot90(pet[:, 72, :]), cmap='binary')
+                        axs[1, 2].imshow(np.rot90(mri[:, 72, :]), cmap='binary')
+                        axs[1, 2].imshow(np.rot90(gcam_map[:, 72, :]), cmap='jet', alpha=0.3)
+
+                        axs[2, 0].imshow(np.rot90(mri[:, :, 72]), cmap='binary')
+                        axs[2, 1].imshow(np.rot90(pet[:, :, 72]), cmap='binary')
+                        axs[2, 2].imshow(np.rot90(mri[:, :, 72]), cmap='binary')
+                        axs[2, 2].imshow(np.rot90(gcam_map[:, :, 72]), cmap='jet', alpha=0.3)
+
+                        for ax in axs:
+                            for ax_ in ax:
+                                ax_.axis('off')
+
+                        plt.savefig(
+                            path + '-' + status + reverse + f'/{pet_id}-{confidence_}-center-mri.png',
+                            dpi=300,
+                            bbox_inches='tight'
+                        )
+                        plt.close()
+
+                        fig_count = fig_count + 1

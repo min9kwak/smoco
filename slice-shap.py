@@ -19,11 +19,24 @@ from easydict import EasyDict as edict
 from torch.utils.data import DataLoader
 
 
-hashs = ["2023-03-26_14-13-38"]
+hashs = [
+    "2023-03-28_20-48-43", # random 100 145
+    "2023-03-28_16-36-04", # fixed 50 145
+    "2023-03-28_15-40-43", # random 50 145
+    "2023-03-27_02-40-00", # random 50 72
+    "2023-03-26_21-41-40", # fixed 50 72
+]
+
+hash = hashs[-1]
+
 gpus = ["0"]
 server = "workstation2"
 local_rank = 0
-hash = hashs[0]
+loader_type = 'train' # 'test'
+topk = 3
+masking = False
+
+
 
 config = os.path.join(f'checkpoints/pet-SliceClassification/resnet50/{hash}/configs.json')
 with open(config, 'rb') as fb:
@@ -91,10 +104,23 @@ network.load_state_dict(ckpt['network'])
 network.to(local_rank)
 network.eval()
 
+
+
+
+
+
+
 image_converter = {'sagittal': [], 'coronal': [], 'axial': [], 'confidence': []}
 image_nonconverter = {'sagittal': [], 'coronal': [], 'axial': [], 'confidence': []}
 
-for batch in tqdm.tqdm(test_loader):
+if loader_type == 'train':
+    loader = train_loader
+elif loader_type == 'test':
+    loader = test_loader
+else:
+    raise ValueError
+
+for batch in tqdm.tqdm(loader):
     idx = batch['idx'].item()
     y = batch['y'].item()
 
@@ -118,17 +144,15 @@ for batch in tqdm.tqdm(test_loader):
             image_converter['coronal'].append(b)
             image_converter['axial'].append(c)
             image_converter['confidence'].append(torch.tensor(confidence))
-    if idx == 120:
-        break
 
-topk = 3
-masking = True
+    if len(image_converter['sagittal']) + len(image_nonconverter['sagittal']) == 100:
+        break
 
 converter_idx = torch.tensor(image_converter['confidence']).topk(topk)[1]
 nonconverter_idx = torch.tensor(image_nonconverter['confidence']).topk(topk)[1]
 import shap
 
-
+# converter
 for view in ['sagittal', 'coronal', 'axial']:
 
     test_image = torch.concat(image_converter[view])[converter_idx].to(local_rank)
@@ -150,8 +174,37 @@ for view in ['sagittal', 'coronal', 'axial']:
     shap_numpy = [np.swapaxes(np.swapaxes(s, 1, -1), 1, 2) for s in shap_values]
     test_numpy = np.swapaxes(np.swapaxes(test_image.cpu().numpy(), 1, -1), 1, 2)
 
-    shap.image_plot(shap_numpy, -test_numpy)
+    # shap.image_plot(shap_numpy, -test_numpy)
+    import matplotlib.pyplot as plt
+    from shap.plots.colors._colors import red_transparent_blue
 
+    shap_values = shap_numpy
+    pixel_values = -test_numpy
+    cmap = red_transparent_blue
+    status2idx = {'non-converter': 0, 'converter': 1}
+    status = 'converter'
+
+    multi_output = True
+    if not isinstance(shap_values, list):
+        multi_output = False
+        shap_values = [shap_values]
+
+    # plot our explanations
+    x = pixel_values
+
+    fig_size = np.array([3 * 2, 2.5 * (x.shape[0] + 1)])
+    abs_vals = np.stack([np.abs(shap_values[i].sum(-1)) for i in range(len(shap_values))], 0).flatten()
+    max_val = np.nanpercentile(abs_vals, 99.9)
+    i = status2idx[status]
+    sv = shap_values[i].sum(-1)
+    im = axes[row, 1].imshow(sv, cmap=cmap, vmin=-max_val, vmax=max_val)
+    axes[row, 1].axis('off')
+    fig.tight_layout()
+    plt.show()
+    
+
+
+# non-converter
 for view in ['sagittal', 'coronal', 'axial']:
 
     test_image = torch.concat(image_nonconverter[view])[converter_idx].to(local_rank)

@@ -157,6 +157,8 @@ def main_worker(local_rank: int, config: object):
                                     data_info=config.data_info,
                                     data_type=config.data_type,
                                     mci_only=config.mci_only,
+                                    add_apoe=config.add_apoe,
+                                    add_volume=config.add_volume,
                                     random_state=config.random_state)
     datasets = data_processor.process(n_splits=config.n_splits, n_cv=config.n_cv)
 

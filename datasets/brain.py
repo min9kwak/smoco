@@ -17,6 +17,8 @@ class BrainProcessor(object):
                  data_info: str = 'labels/data_info.csv',
                  data_type: str = 'mri',
                  mci_only: bool = False,
+                 add_apoe: bool = False,
+                 add_volume: bool = False,
                  random_state: int = 2022):
 
         self.root = root
@@ -24,9 +26,13 @@ class BrainProcessor(object):
         assert data_type in ['mri', 'pet']
         self.data_type = data_type
         self.random_state = random_state
-        self.demo_columns = ['PTGENDER (1=male, 2=female)', 'Age', 'PTEDUCAT',
-                             'APOE Status', 'MMSCORE']
-                             # , 'CDGLOBAL', 'SUM BOXES']
+        self.demo_columns = ['PTGENDER (1=male, 2=female)', 'Age', 'PTEDUCAT', 'MMSCORE']
+        self.add_apoe = add_apoe
+        self.add_volume = add_volume
+
+        if self.add_apoe:
+            self.demo_columns = self.demo_columns + ['APOE Status']
+        # , 'CDGLOBAL', 'SUM BOXES']
 
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'Conv': int})
         self.data_info = self.data_info.loc[self.data_info.IS_FILE]
@@ -36,6 +42,12 @@ class BrainProcessor(object):
 
         # preprocess demo
         self._preprocess_demo()
+
+        # include hippocampus volume for simplicity
+        if self.add_volume:
+            self.demo_columns = self.demo_columns + ['Volume']
+
+        self.num_demo_columns = len(self.demo_columns)
 
         # data filtering
         if mci_only:
@@ -142,7 +154,6 @@ class BrainProcessor(object):
                 data_demo_.loc[i, col] = value
         data_demo = data_demo_.copy()
         self.data_info[self.demo_columns] = data_demo[self.demo_columns]
-        self.num_demo_columns = len(self.demo_columns)
 
     def parse_data(self, data_info):
         mri_files = [self.str2mri(p) if type(p) == str else p for p in data_info.MRI]
@@ -270,7 +281,9 @@ if __name__ == '__main__':
                                data_info='labels/data_info.csv',
                                data_type='pet',
                                mci_only=True,
-                               random_state=2021)
+                               add_volume=True,
+                               random_state=2021,
+                               )
     datasets = processor.process(10, 0)
 
     from datasets.transforms import make_transforms
@@ -279,13 +292,13 @@ if __name__ == '__main__':
                                                       rotate=True,
                                                       flip=True,
                                                       prob=0.5)
-    train_set = Brain(dataset=datasets['train'], data_type='pet', transform=train_transform, alpha=0.3)
-    test_set = Brain(dataset=datasets['test'], data_type='pet', transform=test_transform, alpha=0.3)
+    train_set = BrainMoCo(dataset=datasets['train'], data_type='pet',
+                          query_transform=train_transform, key_transform=train_transform)
 
     from datasets.samplers import ImbalancedDatasetSampler
     from torch.utils.data import DataLoader
     train_sampler = ImbalancedDatasetSampler(dataset=train_set)
     train_loader = DataLoader(dataset=train_set, batch_size=16 // 2,
                               sampler=train_sampler, drop_last=True)
-    test_loader = DataLoader(dataset=test_set, batch_size=16 // 2,
-                             drop_last=False)
+    for batch in train_loader:
+        break
