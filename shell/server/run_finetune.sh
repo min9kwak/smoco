@@ -1,23 +1,21 @@
-# /raidWorkspace/mingu/Data
-# D:/Dropbox/Data
 echo "Experiments Started"
-SERVER=workstation2
-GPUS=00
+SERVER=workstation3
+GPUS=5
 
-EPOCHS=100
+EPOCHS=10
 OPTIMIZER=adamw
 LEARNING_RATE=0.0001
 
-FINETUNE_TRANS=train
+FINETUNE_TRANS=test
 
-PRETRAINED_FILE_PRE="checkpoints/pet-moco/resnet/"
+PRETRAINED_FILE_PRE="checkpoints/pet-supmoco/resnet/"
 HASH="2022-06-11_15-53-34"
 
 for HASH in "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34" "2022-06-11_15-53-34"
 do
   for LEARNING_RATE in 0.0001
   do
-    for EPOCHS in 100 50
+    for EPOCHS in 10
     do
       PRETRAINED_DIR="${PRETRAINED_FILE_PRE}${HASH}"
       python ./run_finetune.py \

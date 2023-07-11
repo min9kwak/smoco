@@ -107,7 +107,7 @@ class FinetuneConfig(object):
     def ddp_parser() -> argparse.ArgumentParser:
         parser = argparse.ArgumentParser("Data Distributed Training", add_help=False)
         parser.add_argument('--gpus', type=int, nargs='+', default=None, help='')
-        parser.add_argument('--server', type=str, choices=('main', 'sub', 'dgx', 'workstation', 'workstation2'))
+        parser.add_argument('--server', type=str, choices=('main', 'workstation2', 'workstation3'))
         parser.add_argument('--num_nodes', type=int, default=1, help='')
         parser.add_argument('--node_rank', type=int, default=0, help='')
         parser.add_argument('--dist_url', type=str, default='tcp://127.0.0.1:3500', help='')
@@ -298,8 +298,8 @@ class DemoFinetuneConfig(object):
         parser.add_argument('--freeze_bn', action='store_true', help='Freeze BN weights of CNN backbone.')
         parser.add_argument('--balance', action='store_true', help='apply class balance weight')
         parser.add_argument('--finetune_trans', type=str, default='test', choices=('train', 'test'))
-        parser.add_argument('--hidden', type=str, default="4,4")
 
+        parser.add_argument('--hidden', type=str, default="3")
         parser.add_argument('--add_apoe', action='store_true')
         parser.add_argument('--add_volume', action='store_true')
 
