@@ -52,7 +52,7 @@ def main():
     pretrained_config_names = [
         # data_parser
         # 'data_type', 'root', 'data_info', 'mci_only', 'n_splits', 'n_cv',
-        'image_size', 'small_kernel', # 'random_state',
+        'image_size', 'small_kernel', 'random_state',
         'intensity', 'crop', 'crop_size', 'rotate', 'flip', 'affine', 'blur', 'blur_std', 'prob',
         # model_parser
         'backbone_type', 'init_features', 'growth_rate', 'block_config', 'bn_size', 'dropout_rate',

@@ -54,7 +54,7 @@ def main():
     pretrained_config_names = [
         # data_parser
         # 'data_type', 'root', 'data_info', 'mci_only', 'n_splits', 'n_cv',
-        'image_size', 'small_kernel', # 'random_state',
+        'image_size', 'small_kernel', 'random_state',
         'intensity', 'crop', 'crop_size', 'rotate', 'flip', 'affine', 'blur', 'blur_std', 'prob',
         # model_parser
         'backbone_type', 'init_features', 'growth_rate', 'block_config', 'bn_size', 'dropout_rate',
@@ -108,11 +108,11 @@ def main():
         y_true_final = torch.cat(y_true_final, dim=0)
         y_pred_final = torch.cat(y_pred_final, dim=0).to(torch.float32)
 
-        clf_result = classification_result(y_true=y_true_final.cpu().numpy(),
-                                           y_pred=y_pred_final.softmax(1).detach().cpu().numpy(),
+        clf_result = classification_result(y_true=y_true_final.numpy(),
+                                           y_pred=y_pred_final.softmax(1).numpy(),
                                            adjusted=False)
-        clf_result_adj = classification_result(y_true=y_true_final.cpu().numpy(),
-                                               y_pred=y_pred_final.softmax(1).detach().cpu().numpy(),
+        clf_result_adj = classification_result(y_true=y_true_final.numpy(),
+                                               y_pred=y_pred_final.softmax(1).numpy(),
                                                adjusted=True)
 
         final_history = collections.defaultdict(dict)
@@ -254,6 +254,8 @@ def main_worker(local_rank: int, config: argparse.Namespace):
         elapsed_mins = elapsed_sec / 60
         logger.info(f'Total training time: {elapsed_mins:,.2f} minutes.')
         logger.handlers.clear()
+
+    del model, train_set, test_set, backbone, classifier
 
     return y_true, y_pred
 

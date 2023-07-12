@@ -206,7 +206,7 @@ class AIBLCV(object):
                 wandb.log(log_history)
 
         # adjusted evaluation
-        test_history, y_true, y_pred = self.evaluate(test_loader, adjusted=True, return_valuse=True)
+        test_history, y_true, y_pred = self.evaluate(test_loader, adjusted=True, return_values=True)
         epoch_history = collections.defaultdict(dict)
         for k, v1 in test_history.items():
             epoch_history[k]['adjusted'] = v1
@@ -218,7 +218,11 @@ class AIBLCV(object):
                     log_history[f'{mode}/{metric_name}'] = value
             wandb.log(log_history)
 
-        return y_true, y_pred
+        del train_loader, test_loader
+        self.backbone = None
+        self.classifier = None
+
+        return y_true.detach().cpu(), y_pred.detach().cpu()
 
     def train(self, data_loader):
         """Training defined for a single epoch."""
