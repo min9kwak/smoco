@@ -1,13 +1,9 @@
 import argparse
 import os
 import collections
-import time
-
 import torch
 import torch.nn as nn
 
-from datasets.aibl import AIBLProcessor, AIBLDataset
-from datasets.transforms import make_transforms
 from torch.utils.data import DataLoader
 
 from torch.utils.data import DataLoader
@@ -19,10 +15,8 @@ from datasets.samplers import ImbalancedDatasetSampler
 from utils.optimization import get_optimizer
 from utils.optimization import get_cosine_scheduler
 
-from utils.logging import get_rich_logger
 
-
-class AIBLCV(object):
+class AIBL(object):
     def __init__(self,
                  backbone: nn.Module,
                  classifier: nn.Module,
@@ -45,11 +39,13 @@ class AIBLCV(object):
         self.prepared = False
 
     def prepare(self,
+                loss_function: nn.Module,
                 local_rank: int = 0,
                 **kwargs):  # pylint: disable=unused-argument
 
         # Set attributes
         self.checkpoint_dir = self.config.checkpoint_dir
+        self.loss_function = loss_function
         self.epochs = self.config.epochs
         self.batch_size = self.config.batch_size
         self.num_workers = self.config.num_workers
@@ -87,6 +83,8 @@ class AIBLCV(object):
         self.prepared = True
 
     def run(self,
+            train_set: torch.utils.data.Dataset,
+            test_set: torch.utils.data.Dataset,
             save_every: int = 10,
             **kwargs):
 
@@ -95,112 +93,42 @@ class AIBLCV(object):
         if not self.prepared:
             raise RuntimeError("Training not prepared.")
 
-        y_true_final, y_pred_final = [], []
+        # DataLoader (train, val, test)
+        if train_set is not None:
+            train_sampler = ImbalancedDatasetSampler(dataset=train_set)
+            train_loader = DataLoader(dataset=train_set, batch_size=self.batch_size,
+                                      sampler=train_sampler, num_workers=self.num_workers,
+                                      drop_last=True)
+        else:
+            train_loader = None
+        test_loader = DataLoader(dataset=test_set, batch_size=self.batch_size, num_workers=self.num_workers,
+                                 drop_last=False)
 
-        for n_cv in range(self.config.n_splits):
+        # Logging
+        logger = kwargs.get('logger', None)
 
-            setattr(self.config, 'n_cv', n_cv)
+        # Supervised training
+        best_eval_loss = float('inf')
+        best_epoch = 0
 
-            start = time.time()
+        if (self.enable_wandb) and (train_set is not None):
+            wandb.watch([self.backbone, self.classifier], log='all', log_freq=len(train_loader))
 
-            if self.local_rank == 0:
-                logfile = os.path.join(self.config.checkpoint_dir, f'main_{n_cv}.log')
-                logger = get_rich_logger(logfile=logfile)
-                if self.config.enable_wandb:
-                    wandb.init(
-                        name=f'{self.config.backbone_type} : {self.config.hash}',
-                        project=f'sttr-{self.config.task}',
-                        config=self.config.__dict__
-                    )
-            else:
-                logger = None
+        if self.config.train_mode == 'train':
+            for epoch in range(1, epochs + 1):
 
-            train_set, test_set = self.set_dataset(n_cv=n_cv)
-
-            if train_set is not None:
-                train_sampler = ImbalancedDatasetSampler(dataset=train_set)
-                train_loader = DataLoader(dataset=train_set, batch_size=self.batch_size,
-                                          sampler=train_sampler, num_workers=self.num_workers,
-                                          drop_last=True)
-            else:
-                train_loader = None
-            test_loader = DataLoader(dataset=test_set, batch_size=self.batch_size, num_workers=self.num_workers,
-                                     drop_last=False)
-
-            # Supervised training
-            best_eval_loss = float('inf')
-            best_epoch = 0
-
-            if (self.enable_wandb) and (train_set is not None):
-                wandb.watch([self.backbone, self.classifier], log='all', log_freq=len(train_loader))
-
-            if self.config.train_mode == 'train':
-                for epoch in range(1, epochs + 1):
-
-                    # Train & evaluate
-                    train_history = self.train(train_loader)
-                    test_history = self.evaluate(test_loader)
-
-                    epoch_history = collections.defaultdict(dict)
-                    for k, v1 in train_history.items():
-                        epoch_history[k]['train'] = v1
-                        try:
-                            v2 = test_history[k]
-                            epoch_history[k]['test'] = v2
-                        except KeyError:
-                            continue
-
-                    # Write logs
-                    log = make_epoch_description(
-                        history=epoch_history,
-                        current=epoch,
-                        total=epochs,
-                        best=best_epoch,
-                    )
-                    if logger is not None:
-                        logger.info(log)
-
-                    if self.enable_wandb:
-                        wandb.log({'epoch': epoch}, commit=False)
-                        if self.scheduler is not None:
-                            wandb.log({'lr': self.scheduler.get_last_lr()[0]}, commit=False)
-                        else:
-                            wandb.log({'lr': self.optimizer.param_groups[0]['lr']}, commit=False)
-
-                        log_history = collections.defaultdict(dict)
-                        for metric_name, scores in epoch_history.items():
-                            for mode, value in scores.items():
-                                log_history[f'{mode}/{metric_name}'] = value
-                        wandb.log(log_history)
-
-                    # Save best model checkpoint
-                    eval_loss = test_history['loss']
-                    if eval_loss <= best_eval_loss:
-                        best_eval_loss = eval_loss
-                        best_epoch = epoch
-                        if self.local_rank == 0:
-                            ckpt = os.path.join(self.checkpoint_dir, f"ckpt_{n_cv}.best.pth.tar")
-                            self.save_checkpoint(ckpt, epoch=epoch)
-
-                    # Save intermediate model checkpoints
-                    if (epoch % save_every == 0) & (self.local_rank == 0):
-                        ckpt = os.path.join(self.checkpoint_dir, f"ckpt_{n_cv}.{epoch}.pth.tar")
-                        self.save_checkpoint(ckpt, epoch=epoch)
-
-                    # Update learning rate
-                    if self.scheduler is not None:
-                        self.scheduler.step()
-
-                # Save final model checkpoint
-                ckpt = os.path.join(self.checkpoint_dir, f"ckpt_{n_cv}.last.pth.tar")
-                self.save_checkpoint(ckpt, epoch=epoch)
-
-            else:
-                epoch = 1
+                # Train & evaluate
+                train_history = self.train(train_loader)
                 test_history = self.evaluate(test_loader)
+
                 epoch_history = collections.defaultdict(dict)
-                for k, v1 in test_history.items():
-                    epoch_history[k]['test'] = v1
+                for k, v1 in train_history.items():
+                    epoch_history[k]['train'] = v1
+                    try:
+                        v2 = test_history[k]
+                        epoch_history[k]['test'] = v2
+                    except KeyError:
+                        continue
 
                 # Write logs
                 log = make_epoch_description(
@@ -225,46 +153,70 @@ class AIBLCV(object):
                             log_history[f'{mode}/{metric_name}'] = value
                     wandb.log(log_history)
 
-            # adjusted evaluation
-            test_history, y_true, y_pred = self.evaluate(test_loader, adjusted=True, return_values=True)
-            y_true_final.append(y_true)
-            y_pred_final.append(y_pred)
+                # Save best model checkpoint
+                eval_loss = test_history['loss']
+                if eval_loss <= best_eval_loss:
+                    best_eval_loss = eval_loss
+                    best_epoch = epoch
+                    if self.local_rank == 0:
+                        ckpt = os.path.join(self.checkpoint_dir, f"ckpt.best.pth.tar")
+                        self.save_checkpoint(ckpt, epoch=epoch)
 
+                # Save intermediate model checkpoints
+                if (epoch % save_every == 0) & (self.local_rank == 0):
+                    ckpt = os.path.join(self.checkpoint_dir, f"ckpt.{epoch}.pth.tar")
+                    self.save_checkpoint(ckpt, epoch=epoch)
+
+                # Update learning rate
+                if self.scheduler is not None:
+                    self.scheduler.step()
+
+            # Save final model checkpoint
+            ckpt = os.path.join(self.checkpoint_dir, f"ckpt.last.pth.tar")
+            self.save_checkpoint(ckpt, epoch=epoch)
+
+        else:
+            epoch = 1
+            test_history = self.evaluate(test_loader)
             epoch_history = collections.defaultdict(dict)
             for k, v1 in test_history.items():
-                epoch_history[k]['adjusted'] = v1
+                epoch_history[k]['test'] = v1
+
+            # Write logs
+            log = make_epoch_description(
+                history=epoch_history,
+                current=epoch,
+                total=epochs,
+                best=best_epoch,
+            )
+            if logger is not None:
+                logger.info(log)
 
             if self.enable_wandb:
+                wandb.log({'epoch': epoch}, commit=False)
+                if self.scheduler is not None:
+                    wandb.log({'lr': self.scheduler.get_last_lr()[0]}, commit=False)
+                else:
+                    wandb.log({'lr': self.optimizer.param_groups[0]['lr']}, commit=False)
+
                 log_history = collections.defaultdict(dict)
                 for metric_name, scores in epoch_history.items():
                     for mode, value in scores.items():
                         log_history[f'{mode}/{metric_name}'] = value
                 wandb.log(log_history)
 
-            elapsed_sec = time.time() - start
+        # adjusted evaluation
+        test_history = self.evaluate(test_loader, adjusted=True)
+        epoch_history = collections.defaultdict(dict)
+        for k, v1 in test_history.items():
+            epoch_history[k]['adjusted'] = v1
 
-            if logger is not None:
-                elapsed_mins = elapsed_sec / 60
-                logger.info(f'Total training time: {elapsed_mins:,.2f} minutes.')
-                logger.handlers.clear()
-
-        # TODO: concatenate (final)
-        y_true_final = torch.cat(y_true_final, dim=0)
-        y_pred_final = torch.cat(y_pred_final, dim=0)
-
-        clf_result = classification_result(y_true=y_true_final.cpu().numpy(),
-                                           y_pred=y_pred_final.softmax(1).detach().cpu().numpy(),
-                                           adjusted=False)
-        clf_result_adj = classification_result(y_true=y_true_final.cpu().numpy(),
-                                               y_pred=y_pred_final.softmax(1).detach().cpu().numpy(),
-                                               adjusted=True)
-
-        final_history = collections.defaultdict(dict)
-        for k, v in clf_result.items():
-            final_history[f'final/plain/{k}'] = v
-        for k, v in clf_result_adj.items():
-            final_history[f'final/adjusted/{k}'] = v
-        wandb.log(final_history)
+        if self.enable_wandb:
+            log_history = collections.defaultdict(dict)
+            for metric_name, scores in epoch_history.items():
+                for mode, value in scores.items():
+                    log_history[f'{mode}/{metric_name}'] = value
+            wandb.log(log_history)
 
     def train(self, data_loader):
         """Training defined for a single epoch."""
@@ -321,7 +273,7 @@ class AIBLCV(object):
         return out
 
     @torch.no_grad()
-    def evaluate(self, data_loader, adjusted=False, return_values=False):
+    def evaluate(self, data_loader, adjusted=False):
         """Evaluation defined for a single epoch."""
 
         steps = len(data_loader)
@@ -355,50 +307,7 @@ class AIBLCV(object):
         for k, v in clf_result.items():
             out[k] = v
 
-        if return_values:
-            return out, y_true, y_pred
-        else:
-            return out
-
-    def set_dataset(self, n_cv):
-        # load finetune data
-        data_processor = AIBLProcessor(root=self.config.root,
-                                       data_info=self.config.data_info,
-                                       time_window=self.config.time_window,
-                                       random_state=self.config.random_state)
-        test_only = True if self.config.train_mode == 'test' else False
-        datasets = data_processor.process(n_splits=self.config.n_splits, n_cv=n_cv, test_only=test_only)
-
-        # intensity normalization
-        assert self.config.intensity in [None, 'scale', 'minmax', 'normalize']
-        mean_std, min_max = (None, None), (None, None)
-
-        train_transform, test_transform = make_transforms(image_size=self.config.image_size,
-                                                          intensity=self.config.intensity,
-                                                          min_max=min_max,
-                                                          crop_size=self.config.crop_size,
-                                                          rotate=self.config.rotate,
-                                                          flip=self.config.flip,
-                                                          affine=self.config.affine,
-                                                          blur_std=self.config.blur_std,
-                                                          prob=self.config.prob)
-
-        finetune_transform = train_transform if self.config.finetune_trans == 'train' else test_transform
-        if not test_only:
-            train_set = AIBLDataset(dataset=datasets['train'], transform=finetune_transform)
-        else:
-            train_set = None
-        test_set = AIBLDataset(dataset=datasets['test'], transform=test_transform)
-
-        # Reconfigure batch-norm layers
-        if (self.config.balance) and (not test_only):
-            class_weight = torch.tensor(data_processor.class_weight, dtype=torch.float).to(local_rank)
-            loss_function = nn.CrossEntropyLoss(weight=class_weight)
-        else:
-            loss_function = nn.CrossEntropyLoss()
-        self.loss_function = loss_function
-
-        return train_set, test_set
+        return out
 
     def _set_learning_phase(self, train=False):
         if train:

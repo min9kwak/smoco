@@ -13,13 +13,17 @@ import torch
 import torch.nn as nn
 
 from configs.aibl import AIBLConfig
-from tasks.aibl_cv import AIBLCV
+from tasks.aibl import AIBL
 
 from models.backbone.base import calculate_out_features
 from models.backbone.densenet import DenseNetBackbone
 from models.backbone.resnet import build_resnet_backbone
 from models.head.classifier import LinearClassifier
 
+from datasets.aibl import AIBLProcessor, AIBLDataset
+from datasets.transforms import make_transforms
+
+from utils.logging import get_rich_logger
 from utils.gpu import set_gpu
 
 
@@ -65,7 +69,7 @@ def main():
         if name in pretrained_config.keys():
             setattr(config, name, pretrained_config[name])
 
-    config.task = config.task + f'_aibl-cv'
+    config.task = config.task + f'_aibl'
 
     set_gpu(config)
     num_gpus_per_node = len(config.gpus)
@@ -102,6 +106,18 @@ def main_worker(local_rank: int, config: argparse.Namespace):
 
     config.batch_size = config.batch_size // config.world_size
     config.num_workers = config.num_workers // config.num_gpus_per_node
+
+    if local_rank == 0:
+        logfile = os.path.join(config.checkpoint_dir, 'main.log')
+        logger = get_rich_logger(logfile=logfile)
+        if config.enable_wandb:
+            wandb.init(
+                name=f'{config.backbone_type} : {config.hash}',
+                project=f'sttr-{config.task}',
+                config=config.__dict__
+            )
+    else:
+        logger = None
 
     # Networks
     if config.backbone_type == 'densenet':
@@ -142,16 +158,69 @@ def main_worker(local_rank: int, config: argparse.Namespace):
     # load pretrained model weights
     classifier.load_weights_from_checkpoint(path=config.pretrained_file, key='classifier')
 
+    # load finetune data
+    data_processor = AIBLProcessor(root=config.root,
+                                   data_info=config.data_info,
+                                   time_window=config.time_window,
+                                   random_state=config.random_state)
+    test_only = True if config.train_mode == 'test' else False
+    datasets = data_processor.process(n_splits=config.n_splits, n_cv=config.n_cv, test_only=test_only)
+
+    # intensity normalization
+    assert config.intensity in [None, 'scale', 'minmax', 'normalize']
+    mean_std, min_max = (None, None), (None, None)
+    if config.intensity == 'minmax':
+        with open(os.path.join(config.root, 'labels/minmax.pkl'), 'rb') as fb:
+            minmax_stats = pickle.load(fb)
+            min_max = (minmax_stats[config.data_type]['min'], minmax_stats[config.data_type]['max'])
+    else:
+        pass
+
+    train_transform, test_transform = make_transforms(image_size=config.image_size,
+                                                      intensity=config.intensity,
+                                                      min_max=min_max,
+                                                      crop_size=config.crop_size,
+                                                      rotate=config.rotate,
+                                                      flip=config.flip,
+                                                      affine=config.affine,
+                                                      blur_std=config.blur_std,
+                                                      prob=config.prob)
+
+    finetune_transform = train_transform if config.finetune_trans == 'train' else test_transform
+    if not test_only:
+        train_set = AIBLDataset(dataset=datasets['train'], transform=finetune_transform)
+    else:
+        train_set = None
+    test_set = AIBLDataset(dataset=datasets['test'], transform=test_transform)
+
+    # Reconfigure batch-norm layers
+    if (config.balance) and (not test_only):
+        class_weight = torch.tensor(data_processor.class_weight, dtype=torch.float).to(local_rank)
+        loss_function = nn.CrossEntropyLoss(weight=class_weight)
+    else:
+        loss_function = nn.CrossEntropyLoss()
+
     # Model (Task)
-    model = AIBLCV(backbone=backbone, classifier=classifier, config=config)
+    model = AIBL(backbone=backbone, classifier=classifier, config=config)
     model.prepare(
+        loss_function=loss_function,
         local_rank=local_rank,
     )
 
     # Train & evaluate
+    start = time.time()
     model.run(
+        train_set=train_set,
+        test_set=test_set,
         save_every=config.save_every,
+        logger=logger
     )
+    elapsed_sec = time.time() - start
+
+    if logger is not None:
+        elapsed_mins = elapsed_sec / 60
+        logger.info(f'Total training time: {elapsed_mins:,.2f} minutes.')
+        logger.handlers.clear()
 
 
 if __name__ == '__main__':
