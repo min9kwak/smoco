@@ -58,7 +58,7 @@ def main():
         'backbone_type', 'init_features', 'growth_rate', 'block_config', 'bn_size', 'dropout_rate',
         'arch', 'no_max_pool',
         # train
-        'batch_size',
+        # 'batch_size',
         # moco / supmoco
         'alphas',
         # others
@@ -69,7 +69,7 @@ def main():
         if name in pretrained_config.keys():
             setattr(config, name, pretrained_config[name])
 
-    config.task = config.task + f'_{config.finetune_type}'
+    config.task = config.task + f'_aibl'
 
     set_gpu(config)
     num_gpus_per_node = len(config.gpus)
@@ -113,7 +113,7 @@ def main_worker(local_rank: int, config: argparse.Namespace):
         if config.enable_wandb:
             wandb.init(
                 name=f'{config.backbone_type} : {config.hash}',
-                project=f'sttr-{config.task}-aibl',
+                project=f'sttr-{config.task}',
                 config=config.__dict__
             )
     else:

@@ -91,10 +91,7 @@ class AIBLConfig(object):
 
     @property
     def finetune_type(self) -> str:
-        if self.freeze:
-            return 'linear'
-        else:
-            return 'finetune'
+        return 'finetune'
 
     @staticmethod
     def convert_arg_line_to_args(arg_line):

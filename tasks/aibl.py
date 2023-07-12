@@ -111,7 +111,7 @@ class AIBL(object):
         best_eval_loss = float('inf')
         best_epoch = 0
 
-        if self.enable_wandb:
+        if (self.enable_wandb) and (train_set is not None):
             wandb.watch([self.backbone, self.classifier], log='all', log_freq=len(train_loader))
 
         if self.config.train_mode == 'train':
