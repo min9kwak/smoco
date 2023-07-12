@@ -1,5 +1,6 @@
 # -*- coding: utf-8 -*-
 import argparse
+import collections
 import os
 import sys
 import json
@@ -13,7 +14,7 @@ import torch
 import torch.nn as nn
 
 from configs.aibl import AIBLConfig
-from tasks.aibl import AIBL
+from tasks.aibl_cv import AIBLCV
 
 from models.backbone.base import calculate_out_features
 from models.backbone.densenet import DenseNetBackbone
@@ -25,6 +26,7 @@ from datasets.transforms import make_transforms
 
 from utils.logging import get_rich_logger
 from utils.gpu import set_gpu
+from utils.metrics import classification_result
 
 
 def freeze_bn(module):
@@ -69,7 +71,7 @@ def main():
         if name in pretrained_config.keys():
             setattr(config, name, pretrained_config[name])
 
-    config.task = config.task + f'_aibl'
+    config.task = config.task + f'_aibl_cv'
 
     set_gpu(config)
     num_gpus_per_node = len(config.gpus)
@@ -94,7 +96,38 @@ def main():
         raise NotImplementedError
     else:
         rich.print(f"Single GPU training.")
-        main_worker(0, config=config)  # single machine, single gpu
+
+        y_true_final, y_pred_final = [], []
+        for n_cv in range(config.n_splits):
+            # single machine, single gpu
+            setattr(config, 'n_cv', n_cv)
+            y_true, y_pred = main_worker(0, config=config)
+            y_true_final.append(y_true)
+            y_pred_final.append(y_pred)
+
+        y_true_final = torch.cat(y_true_final, dim=0)
+        y_pred_final = torch.cat(y_pred_final, dim=0).to(torch.float32)
+
+        clf_result = classification_result(y_true=y_true_final.cpu().numpy(),
+                                           y_pred=y_pred_final.softmax(1).detach().cpu().numpy(),
+                                           adjusted=False)
+        clf_result_adj = classification_result(y_true=y_true_final.cpu().numpy(),
+                                               y_pred=y_pred_final.softmax(1).detach().cpu().numpy(),
+                                               adjusted=True)
+
+        final_history = collections.defaultdict(dict)
+        for k, v in clf_result.items():
+            final_history[f'adjusted-plain/{k}'] = v
+        for k, v in clf_result_adj.items():
+            final_history[f'adjusted-adjusted/{k}'] = v
+
+        if config.enable_wandb:
+            wandb.init(
+                name=f'{config.backbone_type} : {config.hash} : final',
+                project=f'sttr-{config.task}',
+                config=config.__dict__
+            )
+            wandb.log(final_history)
 
 
 def main_worker(local_rank: int, config: argparse.Namespace):
@@ -112,7 +145,7 @@ def main_worker(local_rank: int, config: argparse.Namespace):
         logger = get_rich_logger(logfile=logfile)
         if config.enable_wandb:
             wandb.init(
-                name=f'{config.backbone_type} : {config.hash}',
+                name=f'{config.backbone_type} : {config.hash} : {config.n_cv}',
                 project=f'sttr-{config.task}',
                 config=config.__dict__
             )
@@ -201,7 +234,7 @@ def main_worker(local_rank: int, config: argparse.Namespace):
         loss_function = nn.CrossEntropyLoss()
 
     # Model (Task)
-    model = AIBL(backbone=backbone, classifier=classifier, config=config)
+    model = AIBLCV(backbone=backbone, classifier=classifier, config=config)
     model.prepare(
         loss_function=loss_function,
         local_rank=local_rank,
@@ -209,7 +242,7 @@ def main_worker(local_rank: int, config: argparse.Namespace):
 
     # Train & evaluate
     start = time.time()
-    model.run(
+    y_true, y_pred = model.run(
         train_set=train_set,
         test_set=test_set,
         save_every=config.save_every,
@@ -221,6 +254,8 @@ def main_worker(local_rank: int, config: argparse.Namespace):
         elapsed_mins = elapsed_sec / 60
         logger.info(f'Total training time: {elapsed_mins:,.2f} minutes.')
         logger.handlers.clear()
+
+    return y_true, y_pred
 
 
 if __name__ == '__main__':

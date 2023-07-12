@@ -16,7 +16,7 @@ from utils.optimization import get_optimizer
 from utils.optimization import get_cosine_scheduler
 
 
-class AIBL(object):
+class AIBLCV(object):
     def __init__(self,
                  backbone: nn.Module,
                  classifier: nn.Module,
@@ -206,7 +206,7 @@ class AIBL(object):
                 wandb.log(log_history)
 
         # adjusted evaluation
-        test_history = self.evaluate(test_loader, adjusted=True)
+        test_history, y_true, y_pred = self.evaluate(test_loader, adjusted=True, return_valuse=True)
         epoch_history = collections.defaultdict(dict)
         for k, v1 in test_history.items():
             epoch_history[k]['adjusted'] = v1
@@ -217,6 +217,8 @@ class AIBL(object):
                 for mode, value in scores.items():
                     log_history[f'{mode}/{metric_name}'] = value
             wandb.log(log_history)
+
+        return y_true, y_pred
 
     def train(self, data_loader):
         """Training defined for a single epoch."""
@@ -273,7 +275,7 @@ class AIBL(object):
         return out
 
     @torch.no_grad()
-    def evaluate(self, data_loader, adjusted=False):
+    def evaluate(self, data_loader, adjusted=False, return_values=False):
         """Evaluation defined for a single epoch."""
 
         steps = len(data_loader)
@@ -307,7 +309,10 @@ class AIBL(object):
         for k, v in clf_result.items():
             out[k] = v
 
-        return out
+        if return_values:
+            return out, y_true, y_pred
+        else:
+            return out
 
     def _set_learning_phase(self, train=False):
         if train:
