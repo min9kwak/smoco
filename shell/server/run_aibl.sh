@@ -39,7 +39,7 @@ do
       --balance \
       --finetune_trans $FINETUNE_TRANS \
       --random_state $RANDOM_STATE \
-      --n_slits $N_SPLITS \
+      --n_splits $N_SPLITS \
       --n_cv $N_CV \
       --train_mode $TRAIN_MODE
     done

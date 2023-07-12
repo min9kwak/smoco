@@ -57,8 +57,8 @@ class AIBLProcessor(object):
     def process(self, n_splits=10, n_cv=0, test_only=False):
 
         # def process
-        rid = processor.data_info.RID.tolist()
-        conv = processor.data_info['Conv_36'].tolist()
+        rid = self.data_info.RID.tolist()
+        conv = self.data_info['Conv_36'].tolist()
         assert 0 <= n_cv < n_splits
 
         cv = StratifiedGroupKFold(n_splits=n_splits, shuffle=True, random_state=2021)
@@ -69,13 +69,13 @@ class AIBLProcessor(object):
             test_idx_list.append(test_idx)
         train_idx, test_idx = train_idx_list[n_cv], test_idx_list[n_cv]
 
-        train_info = processor.data_info.iloc[train_idx].reset_index(drop=True)
-        test_info = processor.data_info.iloc[test_idx].reset_index(drop=True)
+        train_info = self.data_info.iloc[train_idx].reset_index(drop=True)
+        test_info = self.data_info.iloc[test_idx].reset_index(drop=True)
 
         # filter rids in unlabeled data
         test_rid = list(set(test_info.RID))
-        processor.u_data_info = processor.u_data_info[~processor.u_data_info.RID.isin(test_rid)]
-        u_train_info = processor.u_data_info.reset_index(drop=True)
+        self.u_data_info = self.u_data_info[~self.u_data_info.RID.isin(test_rid)]
+        u_train_info = self.u_data_info.reset_index(drop=True)
 
         # TODO: demographic and clinical data preprocessing
 

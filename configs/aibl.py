@@ -149,7 +149,7 @@ class AIBLConfig(object):
         parser.add_argument('--finetune_trans', type=str, default='test', choices=('train', 'test'))
 
         # data
-        parser.add_argument('--root', type=str, default='/raidWorkspace/mingu/data/AIBL')
+        parser.add_argument('--root', type=str, default='/raidWorkspace/mingu/Data/AIBL')
         parser.add_argument('--data_info', type=str, default='data_info.csv')
         parser.add_argument('--time_window', type=int, default=36, choices=(18, 36))
         parser.add_argument('--random_state', type=int, default=2021)
@@ -244,10 +244,7 @@ class DemoAIBLConfig(object):
 
     @property
     def finetune_type(self) -> str:
-        if self.freeze:
-            return 'linear'
-        else:
-            return 'finetune'
+        return 'finetune'
 
     @staticmethod
     def convert_arg_line_to_args(arg_line):
@@ -313,7 +310,7 @@ class DemoAIBLConfig(object):
 
 
         # data
-        parser.add_argument('--root', type=str, default='/raidWorkspace/mingu/data/AIBL')
+        parser.add_argument('--root', type=str, default='/raidWorkspace/mingu/Data/AIBL')
         parser.add_argument('--data_info', type=str, default='data_info.csv')
         parser.add_argument('--time_window', type=int, default=36, choices=(18, 36))
         parser.add_argument('--random_state', type=int, default=2021)

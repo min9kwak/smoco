@@ -144,9 +144,6 @@ def main_worker(local_rank: int, config: argparse.Namespace):
     # load pretrained model weights
     backbone.load_weights_from_checkpoint(path=config.pretrained_file, key='backbone')
 
-    if config.freeze:
-        backbone.freeze_weights()
-
     if config.freeze_bn:
         freeze_bn(backbone)
 
