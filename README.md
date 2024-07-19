@@ -1,5 +1,5 @@
 # Self-Supervised Contrastive Learning to Predict the Progression of Alzheimer's Disease with 3D Amyloid-PET
-This repository provides the code to implement the following paper:
+This repository provides the code to implement the following [paper](https://www.mdpi.com/2306-5354/10/10/1141):
 
 Kwak, M. G., Su, Y., Chen, K., Weidman, D., Wu, T., Lure, F., ... & Alzheimer’s Disease Neuroimaging Initiative. (2023).
 Self-Supervised Contrastive Learning to Predict the Progression of Alzheimer’s Disease with 3D Amyloid-PET.
