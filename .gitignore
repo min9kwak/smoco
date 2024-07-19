@@ -152,6 +152,7 @@ shell/
 models/slice/
 utils/occlusion.py
 utils/semi.py
+scripts/
 
 logs.pkl
 FDG.zip

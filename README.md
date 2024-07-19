@@ -5,6 +5,9 @@ Kwak, M. G., Su, Y., Chen, K., Weidman, D., Wu, T., Lure, F., ... & Alzheimer’
 Self-Supervised Contrastive Learning to Predict the Progression of Alzheimer’s Disease with 3D Amyloid-PET.
 <i>Bioengineering, 10</i>(10), 1141.
 
+The proposed SMoCo, built upon Momentum Contrast (MoCo), is contrastive learning method to accurately predict the conversion to AD for individuals with mild cognitive impairment (MCI) with 3D amyloid-PET. 
+SMoCo uses both labeled and unlabeled data to capture general semantic representations underlying the images.
+
 ## Requirements
 ### Installation
 To use this package safely, ensure you have the following:
