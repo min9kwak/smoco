@@ -147,7 +147,7 @@ notebooks/
 datasets/depr/
 datasets/depr_/
 datasets/slice/
-datasets/multibrain.py
+tasks/slice/
 
 logs.pkl
 FDG.zip
