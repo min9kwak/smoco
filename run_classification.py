@@ -7,6 +7,7 @@ import rich
 import numpy as np
 import pickle
 import wandb
+import argparse
 
 import torch
 import torch.nn as nn
@@ -63,7 +64,7 @@ def main():
         main_worker(0, config=config)  # single machine, single gpu
 
 
-def main_worker(local_rank: int, config: object):
+def main_worker(local_rank: int, config: argparse.Namespace):
     """Single process."""
 
     torch.cuda.set_device(local_rank)

@@ -238,42 +238,6 @@ class BrainMoCo(BrainBase):
         return dict(x1=x1, x2=x2, demo=demo, mc=mc, volume=volume, y=y, idx=idx)
 
 
-class BrainMixUp(BrainBase):
-
-    def __init__(self, dataset, data_type, transform, alpha, **kwargs):
-        super().__init__(dataset, data_type, **kwargs)
-        self.transform = transform
-        self.alpha = alpha
-
-    def __getitem__(self, idx):
-
-        # one-hot label
-        y = torch.zeros(2)
-        y[self.y[idx]] = 1.0
-
-        # original image
-        img = self.load_image(path=self.paths[idx])
-        if self.transform is not None:
-            img = self.transform(img)
-
-        # mixup image
-        idx_mix = random.randint(0, self.__len__() - 1)
-        y_mix = torch.zeros(2)
-        y_mix[self.y[idx_mix]] = 1.0
-
-        img_mix = self.load_image(path=self.paths[idx_mix])
-        if self.transform is not None:
-            img_mix = self.transform(img_mix)
-
-        lam = np.random.beta(self.alpha, self.alpha)
-        img_mix = lam * img + (1 - lam) * img_mix
-        y_mix = lam * y + (1 - lam) * y_mix
-
-        demo = self.demo[idx]
-
-        return dict(x=img, x_mix=img_mix, y=y, y_mix=y_mix, demo=demo, idx=idx, idx_mix=idx_mix)
-
-
 if __name__ == '__main__':
 
     processor = BrainProcessor(root='D:/data/ADNI',

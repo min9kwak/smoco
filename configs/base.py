@@ -7,6 +7,19 @@ import argparse
 import datetime
 
 
+def str2bool(string: str):
+    """
+    string to boolean
+    ex) parser.add_argument('--argument', type=str2bool, default=True)
+    """
+    if string.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif string.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 class ConfigBase(object):
     def __init__(self, args: argparse.Namespace = None, **kwargs):
 
@@ -38,6 +51,10 @@ class ConfigBase(object):
             cls.logging_parser(),        # task-agnostic
             cls.task_specific_parser(),  # task-specific
         ]
+
+        # Check if finetune_parser method exists and add it
+        if hasattr(cls, 'finetune_parser'):
+            parents.append(cls.finetune_parser())
 
         parser = argparse.ArgumentParser(add_help=True, parents=parents, fromfile_prefix_chars='@')
         parser.convert_arg_line_to_args = cls.convert_arg_line_to_args
@@ -118,25 +135,24 @@ class ConfigBase(object):
         """Returns an `argparse.ArgumentParser` instance containing data-related arguments."""
 
         parser = argparse.ArgumentParser("Data", add_help=False)
-        parser.add_argument('--data_type', type=str, choices=('mri', 'pet', 'multi'), required=True)
+        parser.add_argument('--data_type', type=str, default='pet', choices=('mri', 'pet'))
         parser.add_argument('--root', type=str, default='D:/data/ADNI')
         parser.add_argument('--data_info', type=str, default='labels/data_info.csv')
-        parser.add_argument('--mci_only', action='store_true')
+        parser.add_argument('--mci_only', type=str2bool, default=True)
         parser.add_argument('--n_splits', type=int, default=10)
         parser.add_argument('--n_cv', type=int, default=0)
-        parser.add_argument('--image_size', type=int, default=None,
-                            help='global=196, left=64, right=96, hippo=96')
-        parser.add_argument('--small_kernel', action='store_true')
+        parser.add_argument('--image_size', type=int, default=72)
+        parser.add_argument('--small_kernel', type=str2bool, default=True)
         parser.add_argument('--random_state', type=int, default=2022)
 
         # augmentation
         # TODO: remove --crop, --blur
-        parser.add_argument('--intensity', type=str, choices=('scale', 'normalize', 'minmax'))
-        parser.add_argument('--crop_size', type=int)
-        parser.add_argument('--rotate', action='store_true')
-        parser.add_argument('--flip', action='store_true')
-        parser.add_argument('--affine', action='store_true')
-        parser.add_argument('--blur_std', type=float)
+        parser.add_argument('--intensity', type=str, default='scale', choices=('scale', 'normalize', 'minmax'))
+        parser.add_argument('--crop_size', type=int, default=64)
+        parser.add_argument('--rotate', type=str2bool, default=True)
+        parser.add_argument('--flip', type=str2bool, default=True)
+        parser.add_argument('--affine', type=str2bool, default=False)
+        parser.add_argument('--blur_std', type=float, default=0.0)
         parser.add_argument('--prob', type=float, default=0.5)
 
         return parser
@@ -150,16 +166,16 @@ class ConfigBase(object):
         # define backbone
         parser.add_argument('--backbone_type', type=str, choices=('densenet', 'resnet', 'cnn'), required=True)
 
-        # densenet
+        # densenet; otherwise, ignored
         parser.add_argument('--init_features', type=int, help='64')
         parser.add_argument('--growth_rate', type=int, help='32')
         parser.add_argument('--block_config', type=str, help='"6, 12, 24, 16"')
         parser.add_argument('--bn_size', type=int, help='4')
         parser.add_argument('--dropout_rate', type=float, help='0.0')
 
-        # resnet
-        parser.add_argument('--arch', type=int, help='18')
-        parser.add_argument('--no_max_pool', action='store_true', help='skip')
+        # resnet; otherwise, ignored
+        parser.add_argument('--arch', type=int, default=50, choices=(18, 50, 101))
+        parser.add_argument('--no_max_pool', type=str2bool, default=False, help='skip')
 
         # cnn
 
@@ -170,15 +186,15 @@ class ConfigBase(object):
         """Returns an `argparse.ArgumentParser` instance containing training-related arguments."""
         parser = argparse.ArgumentParser("Model Training", add_help=False)
         parser.add_argument('--epochs', type=int, default=100, help='Number of training epochs.')
-        parser.add_argument('--batch_size', type=int, default=4, help='Mini-batch size.')
+        parser.add_argument('--batch_size', type=int, default=16, help='Mini-batch size.')
         parser.add_argument('--num_workers', type=int, default=4, help='Number of CPU threads.')
-        parser.add_argument('--optimizer', type=str, default='sgd', choices=('sgd', 'adamw'), help='Optimization algorithm.')
-        parser.add_argument('--learning_rate', type=float, default=0.01, help='Base learning rate to start from.')
+        parser.add_argument('--optimizer', type=str, default='adamw', choices=('sgd', 'adamw'), help='Optimization algorithm.')
+        parser.add_argument('--learning_rate', type=float, default=0.0001, help='Base learning rate to start from.')
         parser.add_argument('--weight_decay', type=float, default=1e-4, help='Weight decay factor.')
         parser.add_argument('--cosine_warmup', type=int, default=0, help='Number of warmups before cosine LR scheduling (-1 to disable.)')
         parser.add_argument('--cosine_cycles', type=int, default=1, help='Number of hard cosine LR cycles with hard restarts.')
         parser.add_argument('--cosine_min_lr', type=float, default=0.0, help='LR lower bound when cosine scheduling is used.')
-        parser.add_argument('--mixed_precision', action='store_true', help='Use float16 precision.')
+        parser.add_argument('--mixed_precision', type=str2bool, default=False, help='Use float16 precision.')
         return parser
 
     @staticmethod
@@ -187,5 +203,5 @@ class ConfigBase(object):
         parser = argparse.ArgumentParser("Logging", add_help=False)
         parser.add_argument('--checkpoint_root', type=str, default='./checkpoints/', help='Top-level directory of checkpoints.')
         parser.add_argument('--save_every', type=int, default=100, help='Save model checkpoint every `save_every` epochs.')
-        parser.add_argument('--enable_wandb', action='store_true', help='Use Weights & Biases plugin.')
+        parser.add_argument('--enable_wandb', type=str2bool, default=True, help='Use Weights & Biases plugin.')
         return parser

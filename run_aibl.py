@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-import argparse
+
 import os
 import sys
 import json
@@ -8,6 +8,7 @@ import rich
 import numpy as np
 import pickle
 import wandb
+import argparse
 
 import torch
 import torch.nn as nn

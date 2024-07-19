@@ -16,10 +16,8 @@ class SupMoCoConfig(ConfigBase):
         parser.add_argument('--key_momentum', type=float, default=0.999, help='Momentum for updating key encoder.')
         parser.add_argument('--split_bn', action='store_true')
         parser.add_argument('--knn_k', type=str, default="1, 5, 15", help='')
-        parser.add_argument('--alphas', type=str, default="1.0, 0.50", help='weights for losses')
+        parser.add_argument('--alphas', type=str, default="1.0, 1.0", help='weights for losses')
         parser.add_argument('--alphas_min', type=str, default="1.0, 0.0",
                             help='minimum values of weights for losses')
         parser.add_argument('--alphas_decay_end', type=str, default="-1, -1")
-        parser.add_argument('--topk', type=int)
-        parser.add_argument('--bottomk', type=int)
         return parser
