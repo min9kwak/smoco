@@ -14,33 +14,23 @@ def convert_month(month_str):
     return None
 
 
-# TODO: concatenate AIBL_01032023.xlsx and AIBL_labels.csv with exist_file column
+# Load data information and labels
 root = 'D:/data/AIBL'
+mri_dir = 'template/MRI'
+pib_dir = 'template/PIB'
+
 data_info = 'AIBL_01032023.xlsx'
 data_labels = 'AIBL_labels.csv'
-image_dir = 'template/PIB'
-
-data_info = pd.read_excel(os.path.join(root, data_info), sheet_name='PIB-MR', converters={'RID': str})
-data_info['Month'] = data_info['Visit'].apply(convert_month)
 data_labels = pd.read_csv(os.path.join(root, data_labels), converters={'RID': str})
 
-data_info[['Conv_18', 'Conv_36']] = np.nan
-data_info['is_file'] = False
-data_info['image_file'] = ''
+data_labels['IS_MRI_FILE'] = False
+data_labels['IS_PIB_FILE'] = False
 
-for i, row in tqdm.tqdm(data_info.iterrows(), total=len(data_info)):
+data_labels['image_file'] = data_labels['RID'] + data_labels['Visit'] + '.pkl'
+for i, row in data_labels.iterrows():
+    if os.path.isfile(os.path.join(root, mri_dir, row['image_file'])):
+        data_labels.loc[i, 'IS_MRI_FILE'] = True
+    if os.path.isfile(os.path.join(root, pib_dir, row['image_file'])):
+        data_labels.loc[i, 'IS_PIB_FILE'] = True
 
-    rid, visit, month = row['RID'], row['Visit'], row['Month']
-    index = (data_labels['RID'] == rid) & (data_labels['Month'] == month)
-    assert sum(index) == 1
-
-    result = data_labels.loc[index]
-    data_info.loc[i, 'Conv_18'] = result['Conv_18'].item()
-    data_info.loc[i, 'Conv_36'] = result['Conv_36'].item()
-
-    pib_file = os.path.join(root, image_dir, f'{rid}{visit}.pkl')
-    is_file = os.path.isfile(pib_file)
-    data_info.loc[i, 'is_file'] = is_file
-    data_info.loc[i, 'image_file'] = f'{rid}{visit}.pkl'
-
-data_info.to_csv(os.path.join(root, 'data_info.csv'), index=False)
+data_labels.to_csv('D:/data/AIBL/data_info.csv', index=False)

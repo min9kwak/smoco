@@ -192,17 +192,12 @@ if __name__ == '__main__':
     import torch
     import torch.nn as nn
 
-    images = torch.randn(size=(3, 1, 36, 36, 36))
+    images = torch.randn(size=(3, 1, 72, 72, 72))
 
-    backbone = build_resnet_backbone(arch=50, no_max_pool=False, in_channels=1, semi=True, small_kernel=False)
+    backbone = build_resnet_backbone(arch=50,
+                                     no_max_pool=False,
+                                     in_channels=1,
+                                     semi=False)
+    backbone._fix_first_conv()
 
-    feature_map = backbone(images)
-    print(backbone.conv1)
-    print(feature_map.shape)
-
-    print('---------------')
-
-    backbone = build_resnet_backbone(arch=50, no_max_pool=False, in_channels=1, semi=True, small_kernel=True)
-    feature_map = backbone(images)
-    print(backbone.conv1)
-    print(feature_map.shape)
+    backbone(images).shape

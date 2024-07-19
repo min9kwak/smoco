@@ -136,10 +136,9 @@ if __name__ == '__main__':
                               data_info='data_info.csv',
                               time_window=36,
                               random_state=2021)
-
-
-
-    datasets = processor.process(10, 0, test_only=True)
+    datasets = processor.process(5, 0, test_only=False)
+    np.bincount(datasets['train']['y'])
+    np.bincount(datasets['test']['y'])
 
     from datasets.transforms import make_transforms
     train_transform, test_transform = make_transforms(image_size=72,

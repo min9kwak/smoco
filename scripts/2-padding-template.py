@@ -8,11 +8,11 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import pickle
 
-# root = 'D:/data/ADNI'
-root = '/raidWorkspace/mingu/Data/ADNI'
+root = 'D:/data/ADNI'
+# root = '/raidWorkspace/mingu/Data/ADNI'
 data_info = pd.read_csv(os.path.join(root, 'labels/data_info.csv'))
-mri_save_dir = os.path.join(root, "template/FS7")
-pet_save_dir = os.path.join(root, "template/PUP_FBP")
+mri_save_dir = os.path.join(root, "template1/FS7")
+pet_save_dir = os.path.join(root, "template1/PUP_FBP")
 os.makedirs(mri_save_dir, exist_ok=True)
 os.makedirs(pet_save_dir, exist_ok=True)
 

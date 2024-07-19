@@ -15,7 +15,7 @@ class BrainProcessor(object):
     def __init__(self,
                  root: str,
                  data_info: str = 'labels/data_info.csv',
-                 data_type: str = 'mri',
+                 data_type: str = 'pet',
                  mci_only: bool = False,
                  add_apoe: bool = False,
                  add_volume: bool = False,
@@ -32,7 +32,6 @@ class BrainProcessor(object):
 
         if self.add_apoe:
             self.demo_columns = self.demo_columns + ['APOE Status']
-        # , 'CDGLOBAL', 'SUM BOXES']
 
         self.data_info = pd.read_csv(os.path.join(root, data_info), converters={'RID': str, 'Conv': int})
         self.data_info = self.data_info.loc[self.data_info.IS_FILE]

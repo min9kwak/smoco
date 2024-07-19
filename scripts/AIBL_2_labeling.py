@@ -49,6 +49,10 @@ df = pd.merge(df, df_mri[['RID', 'Month']], how='outer')
 
 df['DX'] = ''
 df['Type'] = ''
+df['Visit'] = ''
+
+df[['Age', 'PTGENDER', 'CDGLOBAL', 'MMSCORE', 'APOE']] = ''
+
 flag = False
 
 for i, row in df.iterrows():
@@ -58,11 +62,21 @@ for i, row in df.iterrows():
         record = temp.loc[(temp['RID'] == rid) & (temp['Month'] == month)]
         if not record.empty:
             assert not flag
+
             df.loc[i, 'DX'] = record['DX'].item()
             df.loc[i, 'Type'] = key
+            df.loc[i, 'Visit'] = record['Visit'].item()
+
+            df.loc[i, 'Age'] = record['Age'].item()
+            df.loc[i, 'PTGENDER'] = float(record['PTGENDER'].item())
+            df.loc[i, 'CDGLOBAL'] = record['CDGLOBAL'].item()
+            df.loc[i, 'MMSCORE'] = record['MMSCORE'].item()
+            df.loc[i, 'APOE'] = record['Status'].item()
+
             flag = True
         else:
             flag = False
+    flag = False
 
 
 # unique patient IDs

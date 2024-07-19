@@ -47,7 +47,7 @@ class MultiBrainProcessor(object):
         train_idx_list, test_idx_list = [], []
         for train_idx, test_idx in cv.split(X=rid, y=conv, groups=rid):
             train_idx_list.append(train_idx)
-            test_idx_list.append(test_idx)
+            self.append = test_idx_list.append(test_idx)
         train_idx, test_idx = train_idx_list[n_cv], test_idx_list[n_cv]
 
         complete_info_train = self.complete_info.iloc[train_idx].reset_index(drop=True)

@@ -129,21 +129,30 @@ dmypy.json
 .pyre/
 
 # This REPO
+depr/
+cam/
 checkpoints/
 documents/
 meetings/
-cam/
 gcam/
 occlusion/
-papers/
 paper/
+papers/
 ideation/
 scratches/
 wandb/
 writing/
 result/
+notebooks/
+
+datasets/depr
+datasets/depr_
+datasets/slice
+datasets/multibrain.py
+
 logs.pkl
 FDG.zip
+
 
 # IDE
 .vscode
