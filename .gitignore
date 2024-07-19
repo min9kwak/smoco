@@ -148,6 +148,10 @@ datasets/depr/
 datasets/depr_/
 datasets/slice/
 tasks/slice/
+shell/
+models/slice/
+utils/occlusion.py
+utils/semi.py
 
 logs.pkl
 FDG.zip
