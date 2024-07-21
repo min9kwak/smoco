@@ -17,8 +17,7 @@ To use this package safely, ensure you have the following:
 Additionally, we recommend using [wandb](https://wandb.ai/site) to track model training and evaluation. It can be enabled by `enable_wandb` argument.
 
 ## File Description
-The modified implementations (`modality.py`, `ANTs.py`, and `preprocessor.py`) locate in `modified` directory.
-```    .
+```
     ├── configs/                  # task-specific arguments
     ├── datasets/                 # pytorch Dataset and transformation functions
     ├── layers/                   # functions for SMoCo                     
